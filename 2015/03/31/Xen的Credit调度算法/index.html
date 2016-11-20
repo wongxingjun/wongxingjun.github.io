@@ -1,0 +1,713 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="虚拟化,Xen," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/figures/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="我的工作中要涉及到Xen虚拟化技术，尤为关注虚拟CPU（以下简称VCPU）的调度算法，Xen的原理就不做介绍了。这篇主要关注一下VCPU的调度算法">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Xen的Credit调度算法">
+<meta property="og:url" content="http://yoursite.com/2015/03/31/Xen的Credit调度算法/index.html">
+<meta property="og:site_name" content="FlyingMcdull">
+<meta property="og:description" content="我的工作中要涉及到Xen虚拟化技术，尤为关注虚拟CPU（以下简称VCPU）的调度算法，Xen的原理就不做介绍了。这篇主要关注一下VCPU的调度算法">
+<meta property="og:updated_time" content="2016-11-05T08:24:45.219Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Xen的Credit调度算法">
+<meta name="twitter:description" content="我的工作中要涉及到Xen虚拟化技术，尤为关注虚拟CPU（以下简称VCPU）的调度算法，Xen的原理就不做介绍了。这篇主要关注一下VCPU的调度算法">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2015/03/31/Xen的Credit调度算法/"/>
+
+
+
+
+
+  <title> Xen的Credit调度算法 | FlyingMcdull </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">FlyingMcdull</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2015/03/31/Xen的Credit调度算法/">
+
+  <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <meta itemprop="name" content="Mcdull">
+    <meta itemprop="description" content="">
+    <meta itemprop="image" content="/figures/mcdull.jpg">
+  </span>
+
+  <span style="display:none" itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+    <meta itemprop="name" content="FlyingMcdull">
+    <span style="display:none" itemprop="logo" itemscope itemtype="http://schema.org/ImageObject">
+      <img style="display:none;" itemprop="url image" alt="FlyingMcdull" src="">
+    </span>
+  </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Xen的Credit调度算法
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2015-03-31T17:05:45+08:00">
+                2015-03-31
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+              <span class="post-meta-divider">|</span>
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Xen/" itemprop="url" rel="index">
+                    <span itemprop="name">Xen</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+
+          
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>我的工作中要涉及到Xen虚拟化技术，尤为关注虚拟CPU（以下简称VCPU）的调度算法，Xen的原理就不做介绍了。这篇主要关注一下VCPU的调度算法<br><a id="more"></a></p>
+<h1 id="VCPU调度"><a href="#VCPU调度" class="headerlink" title="VCPU调度"></a>VCPU调度</h1><p>计算机系统中CPU完成几乎所有的计算工作，OS控制CPU在系统中多个进程间切换，这就是CPU调度。一个物理机可以运行多个虚拟机，虚拟机具有几乎和物理机同样的功能特性。一般而言，物理服务器上的物理CPU（以下简称PCPU）数量会少于虚拟机的VCPU总数，因此存在VCPU对PCPU的分时复用。Xen必须要为VCPU合理分配时间片（占用PCPU的时间长短）并维护VCPU的状态，对VCPU使用PCPU进行合理的调度。</p>
+<h1 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h1><p>考虑到通用性、稳定性等因素，Xen默认采用Credit调度算法来实现VCPU调度，实现了一种按照比例公平共享的调度策略，可以应用在SMP中。Credit，中文意思是账目，我们可以理解为记账式调度算法。在Credit调度器中每个虚拟机有两个可以配置的参数:weight和cap。weight表示VM的权值，每个VM可以获得的CPU时间和weight直接相关。Credit根据weight按比例分配CPU时间给VM。Credit支持工作保留模式，当PCPU空闲时，已经用尽预先分配CPU时间的VM可以得到额外的补充。cap是用来限制VM可以获得时间片的上限。Credit调度器为每一个VCPU维护一个credit值，用来表示可以运行CPU时间。VCPU占用PCPU时会消耗credit，调度器会每隔一个周期时间根据VM的weight为VCPU补充credit。Credit调度算法中有3个优先级，分别是boost &gt; under &gt; over，优先级由credit大小来决定。credit &lt; 0时，优先级为over，否则就是under。boost优先级是后来为了降低IO处理的延迟而引进的一个优先级，如果处于阻塞状态的VCPU收到了一个外部事件，就会被唤醒并强制设置为boost优先级，可以抢占PCPU来运行。Credit调度器采用选取VCPU队列中处于under优先级的VCPU来运行，同等优先级的VCPU采用Round-Robin调度。Credit调度算法可以很好支持SMP，每个PCPU维护一个VCPU队列，队列按照优先级从高到低排列。当PCPU所维护的队列没有VCPU可以调度运行，就会从别的PCPU的队列中窃取一个可以调度的VCPU来运行。</p>
+<h1 id="调度过程"><a href="#调度过程" class="headerlink" title="调度过程"></a>调度过程</h1><p>在Credit调度算法中，每个PCPU下面都有一个VCPU的运行队列，每个运行队列中的VCPU都有一个credit值，credit表示VCPU的priority的价值。CPU调度的是最先入队的处于队首的在under或under状态之上的VCPU，每10ms为一个时间片，相应产生一次中断。如果被调度的VCPU的credit处于Over状态，那么它将不再被继续调度，重新计算其credit值，调度后面的第一个处于under状态下的VCPU；如果VCPU执行了3个时间片也就是30ms时，原先的VCPU还是没有处于over状态，那么这个VCPU也将不被继续调度，credit值将重新计算，处于over状态的VCPU的 credit的值不被增加。在启动Xen时会初始化Credit调度算法，创建一个idle_domain，它有和物理CPU个数相同的VCPU，每个VCPU位于对应的物理CPU上，用于占位和空跑，相对于其他domain的VCPU，idle_domain的VCPU优先级是最低的。在初始化时__start_xen–&gt;init_idle_domain–&gt;scheduler_init中会将软中断和schedule()绑定，并设置每个PCPU的用于schedule的s_timer，其处理函数是s_timer_fn，主要是触发软中断SCHEDULE_SOFTIRQ。Schedule()会在每3个tick周期（30ms，即一个VCPU得到调度后运行的时间片）执行一次，该过程的结果为该PCPU找出合适的VCPU和时间片，用于该VCPU在此PCPU上的运行，然后进行上下文切换。这个schedule过程是根据选择的调度算法来确定的。在初始化domain时调度模块会初始化其VCPU的调度信息，VCPU的初始化主要是把VCPU插入到其PCPU的运行就绪队列runq上和活动VCPU列表中。如果发现其对应的PCPU还没初始化，则初始化该PCPU。在初始化每个PCPU时会设置它的tick的timer，每个tick周期（10ms）会执行一次csched_tick，来更新该PCPU上运行的当前VCPU的credit值，减去credit_per_tick，该值是100。当活动VCPU列表为空时说明所有VCPU的credit都为负，则重新计算credit值。否则通过pick后PCPU是否变化来检查是否需要进行VCPU的迁移，如果需要则触发软中断，执行schedule算法。credit算法在执行schedule时，会首先获得该PCPU的就绪队列runq上队首VCPU，即snext，检查其credit值有没有用完，如果没有用完直接返回。如果用完表明该PCPU的就绪队列上没有Under或Boost状态的VCPU，则进行负载均衡，查找其它PCPU上优先级较高的VCPU，执行run_steal把它偷过来运行。如果还没有找到合适的，就返回之前得到的snext。主ticker的master_timer由csched_priv持有，在csched_start_tickers里初始化，它每3个tick周期通过csched_acct来计算所有domain的VCPU的credit值，主要是根据当前credit总值，每个domain占用的权重weight和比例上限cap，计算出每个domain分得的credit值，然后再平均分配到每个VCPU上，VCPU的credit值就等于原有的credit值和新分到的credit之和。根据VCPU最新的credit值来确定VCPU的调度优先级是Over还是Under，如果是Over且cap有设置，则执行sleep，把自己调度出来，等待下次判断和调度。</p>
+<h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>以上简要介绍了一下Xen默认的credit调度算法，这种算法基于公平主义设计，所以针对一些有实时性要求的应用，就会存在短板，影响性能，对其进行适当的优化适应默某些特定场景下实时性需求，也是我的工作之一。后期会对VCPU调度的一些细节进行介绍。</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/虚拟化/" rel="tag"># 虚拟化</a>
+          
+            <a href="/tags/Xen/" rel="tag"># Xen</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2015/03/31/Spark-Streaming学习笔记（六）/" rel="next" title="Spark Streaming学习笔记（六）">
+                <i class="fa fa-chevron-left"></i> Spark Streaming学习笔记（六）
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2015/04/08/Linux内核-进程/" rel="prev" title="Linux内核-进程">
+                Linux内核-进程 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/figures/mcdull.jpg"
+               alt="Mcdull" />
+          <p class="site-author-name" itemprop="name">Mcdull</p>
+          <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">40</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">9</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">19</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/wongxingjun" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/wongxingjun" target="_blank" title="Weibo">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                  Weibo
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://www.facebook.com/wongxingjun" target="_blank" title="Facebook">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Facebook
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://liupengs.github.io/" title="Liupeng's Blog" target="_blank">Liupeng's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#VCPU调度"><span class="nav-number">1.</span> <span class="nav-text">VCPU调度</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#概述"><span class="nav-number">2.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#调度过程"><span class="nav-number">3.</span> <span class="nav-text">调度过程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#小结"><span class="nav-number">4.</span> <span class="nav-text">小结</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Mcdull</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+</body>
+</html>

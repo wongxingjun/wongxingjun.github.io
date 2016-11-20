@@ -1,0 +1,732 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Linux,内核," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/figures/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="Linux内核进程调度是一个极其重要的模块，实现多任务切换，同时为了兼顾系统性能，调度器的设计需要足够精巧，最近仔细回顾了一下Linux内核进程调度器CFS的相关内容，整理记录一下。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux内核-CFS进程调度器">
+<meta property="og:url" content="http://yoursite.com/2015/09/09/Linux内核-CFS进程调度器/index.html">
+<meta property="og:site_name" content="FlyingMcdull">
+<meta property="og:description" content="Linux内核进程调度是一个极其重要的模块，实现多任务切换，同时为了兼顾系统性能，调度器的设计需要足够精巧，最近仔细回顾了一下Linux内核进程调度器CFS的相关内容，整理记录一下。">
+<meta property="og:updated_time" content="2016-11-05T08:24:45.056Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux内核-CFS进程调度器">
+<meta name="twitter:description" content="Linux内核进程调度是一个极其重要的模块，实现多任务切换，同时为了兼顾系统性能，调度器的设计需要足够精巧，最近仔细回顾了一下Linux内核进程调度器CFS的相关内容，整理记录一下。">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2015/09/09/Linux内核-CFS进程调度器/"/>
+
+
+
+
+
+  <title> Linux内核-CFS进程调度器 | FlyingMcdull </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">FlyingMcdull</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2015/09/09/Linux内核-CFS进程调度器/">
+
+  <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <meta itemprop="name" content="Mcdull">
+    <meta itemprop="description" content="">
+    <meta itemprop="image" content="/figures/mcdull.jpg">
+  </span>
+
+  <span style="display:none" itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+    <meta itemprop="name" content="FlyingMcdull">
+    <span style="display:none" itemprop="logo" itemscope itemtype="http://schema.org/ImageObject">
+      <img style="display:none;" itemprop="url image" alt="FlyingMcdull" src="">
+    </span>
+  </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Linux内核-CFS进程调度器
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2015-09-09T20:32:04+08:00">
+                2015-09-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+              <span class="post-meta-divider">|</span>
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/" itemprop="url" rel="index">
+                    <span itemprop="name">Linux</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+
+          
+
+          
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>Linux内核进程调度是一个极其重要的模块，实现多任务切换，同时为了兼顾系统性能，调度器的设计需要足够精巧，最近仔细回顾了一下Linux内核进程调度器CFS的相关内容，整理记录一下。<br><a id="more"></a></p>
+<h1 id="进程调度器概述"><a href="#进程调度器概述" class="headerlink" title="进程调度器概述"></a>进程调度器概述</h1><p>现代操作系统设计的目的在于管理底层硬件资源并使整个计算机系统运行性能达到最优。我们可以发现实现这一目的的方法可以归结为两点：CPU虚拟化和内存虚拟化。现代操作系统一般都能提供多任务执行环境，每个进程都可以拥有自己的虚拟CPU，进程在执行过程中感觉自己是独占CPU。</p>
+<p>类似地，内存虚拟化是通过让每个进程拥有虚拟地址空间，然后映射到物理内存。这样进程也不知道自己的虚拟地址其实并非物理内存中的相应位置，而是存在一个由虚拟地址向物理地址的映射。</p>
+<p>CPU虚拟化是通过多个进程共享CPU实现的，具体来说，就是在一个固定周期内，每个进程获得一定比例的CPU时间。用来选择可以执行的进程的算法称为调度器，选择下一个执行的进程的过程称之为进程调度。</p>
+<p>进程调度器可以说是现代操作系统中最重要的组件了。实现一个调度算法主要有两个挑战：一是对高优先级的进程要特殊照顾，分配更多的CPU资源，二是要保证低优先级的进程不会被饿死（迟迟得不到CPU资源）。此外调度器设计也需要十分精巧，可以保证执行调度器不会有太大开销进而影响整个系统吞吐量。</p>
+<p>对一些交互性要求很高的进程，比如一个文字编辑进程，调度器就应该给每个进程很少的CPU时间，这样可以快速地切换进程，从而提高进程对IO的响应速度，达到更加良好的交互体验。而对一些非交互性的进程，情况则刚好相反。进程间的切换操作开销较大，因此给这种进程分配长CPU时间可以减少上下文切换，从而提高系统性能和吞吐量。显然以上两种情况存在冲突，需要进程调度器做一个tradeoff。</p>
+<h1 id="CFS调度器"><a href="#CFS调度器" class="headerlink" title="CFS调度器"></a>CFS调度器</h1><p>Linux中进程调度器已经经过很多次改进了，目前核心调度器是在CFS（Completely Fair Scheduler），从2.6.23开始被作为默认调度器。用作者Ingo Molnar的话讲，CFS在真实的硬件上模拟了完全理想的多任务处理器。也就是说CFS试图仿真CPU。理想、精确的多任务CPU是一个可以同时并行执行多个进程的硬件CPU，给每个进程分配等量的处理器功率（并非时间）。如果只有一个进程执行，那么它将获得100%的处理器功率，两个进程就是50%，依次平均分配。这样就可以实现所有进程公平执行。</p>
+<p>显然这样的理想CPU是不存在的，CFS调度器试图通过软件方式去模拟出这样的CPU来。在真实处理器上，同一时间只能有一个进程被调度执行，因此其他进程必须等待。因此当前执行的进程将会获得100%的CPU功率，其他等待的进程无法获得CPU功率，这样的分配显然是违背之前的初衷的，没有公平可言。</p>
+<p>CFS调度器就是为了减少系统中的这种不公平，CFS跟踪记录CPU的公平分配份额，用来分配给系统中的每个进程。因此CFS在一小部分CPU时钟速度下运行一个公平时钟。公平时钟增加速度通过用实际时钟时间除以等待进程个数计算。结果就是分配给每个进程的CPU时间。</p>
+<p>进程等待CPU的时候，调度器会跟踪记录它将会使用理想的处理器时间。这个等待时间用每个进程等待执行时间来表示，可以用来对进程进行排序，决定其在被抢占之前可以被分配的CPU时间。等待时间最长的进程会被首先选择调度到CPU上执行，当这个进程执行时，它的等待时间会相应减少，其他进程等待时间自然就会增加了。这样马上就会有另外一个等待时间最长的进程出现，当前执行的进程就会被抢占。基于这一原理，CFS调度器试图公平对待所有进程并使每个进程等待时间为0，这样每个进程就可以拥有等量的CPU资源，达到完全公平的一种理想状态。</p>
+<h1 id="CFS实现细节"><a href="#CFS实现细节" class="headerlink" title="CFS实现细节"></a>CFS实现细节</h1><h2 id="三个重要问题"><a href="#三个重要问题" class="headerlink" title="三个重要问题"></a>三个重要问题</h2><h3 id="选择下一个task"><a href="#选择下一个task" class="headerlink" title="选择下一个task"></a>选择下一个task</h3><p>正如前文所说，CFS调度器试图保证完全公平调度，CFS将CPU时间按照运行队列里所有的se（sched_entity）的权重分配。se的调度顺序由每个task使用CPU的虚拟时间（vruntime）决定，vruntime越少，对应在队列中的位置就越靠前，就会被尽快调度执行。CFS采用红黑树这一数据结构来维护task的队列，红黑树的时间复杂度可以达到O(log n)。</p>
+<h3 id="tick中断"><a href="#tick中断" class="headerlink" title="tick中断"></a>tick中断</h3><p>tick中断更新调度信息，调整当前进程在红黑树中的位置，调整完成后如果当前进程不是最左边的叶子节点（vruntime最小），就标记为需要调度。中断返回时就会调用schedule()来完成进程切换。否则当前进程继续执行。</p>
+<h3 id="红黑树"><a href="#红黑树" class="headerlink" title="红黑树"></a>红黑树</h3><p>红黑树是内核中一种极其重要的数据结构，CFS用来维护进程队列，CFS中红黑树节点就是se，键值就是vruntime，vruntime由进程已经使用CPU时间、nice值和当前CPU负载共同计算而来。关于计算细节下面介绍。</p>
+<h2 id="实现细节"><a href="#实现细节" class="headerlink" title="实现细节"></a>实现细节</h2><h3 id="调度实体sched-entity"><a href="#调度实体sched-entity" class="headerlink" title="调度实体sched_entity"></a>调度实体sched_entity</h3><p>进程调度实际上不是以进程为实际操作对象的，进程结构体定义在”linux/sched.h”中<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">struct</span> task_struct &#123;</div><div class="line">	<span class="keyword">volatile</span> <span class="keyword">long</span> state;	<span class="comment">/* -1 unrunnable, 0 runnable, &gt;0 stopped */</span></div><div class="line">	<span class="keyword">void</span> *<span class="built_in">stack</span>;</div><div class="line">	<span class="keyword">atomic_t</span> usage;</div><div class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> flags;	<span class="comment">/* per process flags, defined below */</span></div><div class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> ptrace;</div><div class="line"></div><div class="line">	<span class="keyword">int</span> lock_depth;		<span class="comment">/* BKL lock depth */</span></div><div class="line"><span class="comment">/*Some unimportant members are not presented.*/</span></div><div class="line">	<span class="keyword">int</span> prio, static_prio, normal_prio;</div><div class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> rt_priority;</div><div class="line">	<span class="keyword">const</span> <span class="keyword">struct</span> sched_class *sched_class;</div><div class="line">	<span class="keyword">struct</span> sched_entity se;</div><div class="line">	<span class="keyword">struct</span> sched_rt_entity rt;</div><div class="line"><span class="comment">/*Some unimportant members are not presented.*/</span></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>其中struct sched_entity se便是进程调度器操作的实际对象，我们称作调度实体，其定义在”linux/sched.h”中<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">struct</span> sched_entity &#123;</div><div class="line">	<span class="keyword">struct</span> load_weight	load;		<span class="comment">/* for load-balancing */</span></div><div class="line">	<span class="keyword">struct</span> rb_node		run_node;</div><div class="line">	<span class="keyword">struct</span> list_head	group_node;</div><div class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span>		on_rq;</div><div class="line"></div><div class="line">	u64			exec_start;</div><div class="line">	u64			sum_exec_runtime;</div><div class="line">	u64			vruntime;              <span class="comment">//Look!</span></div><div class="line">	u64			prev_sum_exec_runtime;</div><div class="line"></div><div class="line">	u64			last_wakeup;</div><div class="line">	u64			avg_overlap;</div><div class="line"></div><div class="line">	u64			nr_migrations;</div><div class="line"></div><div class="line">	u64			start_runtime;</div><div class="line">	u64			avg_wakeup;</div><div class="line"><span class="comment">/*Some unimportant members are not presented.*/</span></div><div class="line">&#125;;</div></pre></td></tr></table></figure></p>
+<p>可以看到vruntime是在se中维护的，还有很多和执行时间分配有关的变量，这里没有一一列出。se被嵌入到task_struct中，这样做的目的是避免频繁操作task_struct，可以降低调度器的设计复杂性。</p>
+<h3 id="虚拟运行时间vruntime"><a href="#虚拟运行时间vruntime" class="headerlink" title="虚拟运行时间vruntime"></a>虚拟运行时间vruntime</h3><p>CFS中已经不再使用时间片了，vruntime表示进程虚拟运行时间，顾名思义就不是进程实际运行时间。CFS用vruntime来记录一个进程执行了多长时间以及还应该再执行多长时间。下面我们通过源码来追踪一下。</p>
+<p>计时器每隔一个周期产生一个tick中断，会调用一个schedluer_tick函数，定义在”linux/sched.h”中<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">void</span> <span class="title">scheduler_tick</span><span class="params">(<span class="keyword">void</span>)</span></span></div><div class="line">&#123;</div><div class="line"><span class="comment">/*Some unimportant code is not presented.*/</span></div><div class="line">	raw_spin_lock(&amp;rq-&gt;lock);</div><div class="line">	update_rq_clock(rq);<span class="comment">//更新运行队列维护的时钟</span></div><div class="line">	update_cpu_load(rq);<span class="comment">//更新运行队列维护的CPU负载</span></div><div class="line">	curr-&gt;sched_class-&gt;task_tick(rq, curr, <span class="number">0</span>);<span class="comment">//触发调度器，这里我们看CFS的</span></div><div class="line">	raw_spin_unlock(&amp;rq-&gt;lock);</div><div class="line"><span class="comment">/*Some unimportant code is not presented.*/</span></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>暂时不关注其他的，直接看CFS的task_tick，对应”kernel/sched_fair.c”中的task_tick_fair函数<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">task_tick_fair</span><span class="params">(<span class="keyword">struct</span> rq *rq, <span class="keyword">struct</span> task_struct *curr, <span class="keyword">int</span> queued)</span></span></div><div class="line">&#123;</div><div class="line">	<span class="keyword">struct</span> cfs_rq *cfs_rq;</div><div class="line">	<span class="keyword">struct</span> sched_entity *se = &amp;curr-&gt;se;</div><div class="line"></div><div class="line">	for_each_sched_entity(se) &#123;</div><div class="line">		cfs_rq = cfs_rq_of(se);</div><div class="line">		entity_tick(cfs_rq, se, queued);<span class="comment">//这里更新每个se的执行时间</span></div><div class="line">	&#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>调用entity_tick更新每个进程的运行状态<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span></span></div><div class="line"><span class="title">entity_tick</span><span class="params">(<span class="keyword">struct</span> cfs_rq *cfs_rq, <span class="keyword">struct</span> sched_entity *curr, <span class="keyword">int</span> queued)</span></div><div class="line">&#123;</div><div class="line">	<span class="comment">/*</span></div><div class="line">	 * Update run-time statistics of the 'current'.</div><div class="line">	 */</div><div class="line">	update_curr(cfs_rq);<span class="comment">//更新当前运行队列，主要是vruntime了</span></div><div class="line"></div><div class="line"><span class="comment">/*Some unimportant code are not presented.*/</span></div><div class="line"></div><div class="line">	<span class="keyword">if</span> (cfs_rq-&gt;nr_running &gt; <span class="number">1</span> || !sched_feat(WAKEUP_PREEMPT))</div><div class="line">		check_preempt_tick(cfs_rq, curr);<span class="comment">//如果可运行的进程多于1个，就</span></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>update_curr函数更新队列里每个进程的vruntime，并重新进行排序。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">update_curr</span><span class="params">(<span class="keyword">struct</span> cfs_rq *cfs_rq)</span></span></div><div class="line">&#123;</div><div class="line">	<span class="keyword">struct</span> sched_entity *curr = cfs_rq-&gt;curr;</div><div class="line">	u64 now = rq_of(cfs_rq)-&gt;clock;</div><div class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> delta_exec;</div><div class="line"></div><div class="line">	<span class="keyword">if</span> (unlikely(!curr))</div><div class="line">		<span class="keyword">return</span>;</div><div class="line"></div><div class="line">	<span class="comment">/*获取最新一次更新负载后当前进程所使用的CPU总时间 */</span></div><div class="line">	delta_exec = (<span class="keyword">unsigned</span> <span class="keyword">long</span>)(now - curr-&gt;exec_start);</div><div class="line">	<span class="keyword">if</span> (!delta_exec)</div><div class="line">		<span class="keyword">return</span>;</div><div class="line"></div><div class="line">	__update_curr(cfs_rq, curr, delta_exec);<span class="comment">//真正计算vruntime在这里</span></div><div class="line">	curr-&gt;exec_start = now;</div><div class="line"></div><div class="line">	<span class="keyword">if</span> (entity_is_task(curr)) &#123;</div><div class="line">		<span class="keyword">struct</span> task_struct *curtask = task_of(curr);</div><div class="line"></div><div class="line">		trace_sched_stat_runtime(curtask, delta_exec, curr-&gt;vruntime);</div><div class="line">		cpuacct_charge(curtask, delta_exec);</div><div class="line">		account_group_exec_runtime(curtask, delta_exec);</div><div class="line">	&#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>update_curr计算当前进程执行时间，然后传递给__update_curr<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">void</span></div><div class="line">__update_curr(<span class="keyword">struct</span> cfs_rq *cfs_rq, <span class="keyword">struct</span> sched_entity *curr,</div><div class="line">	      <span class="keyword">unsigned</span> <span class="keyword">long</span> delta_exec)</div><div class="line">&#123;</div><div class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> delta_exec_weighted;</div><div class="line"></div><div class="line">	schedstat_set(curr-&gt;exec_max, max((u64)delta_exec, curr-&gt;exec_max));</div><div class="line">	</div><div class="line">	<span class="comment">//当前进程执行时间加上传递过来的delta_exec</span></div><div class="line">	curr-&gt;sum_exec_runtime += delta_exec;</div><div class="line">	schedstat_add(cfs_rq, exec_clock, delta_exec);</div><div class="line">	<span class="comment">//计算vruntime</span></div><div class="line">	delta_exec_weighted = calc_delta_fair(delta_exec, curr);</div><div class="line">	curr-&gt;vruntime += delta_exec_weighted;</div><div class="line">	update_min_vruntime(cfs_rq);</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>这里调用了calc_delta_fair来计算权重用来更新vruntime<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/*</span></div><div class="line">delta/=w</div><div class="line">*/</div><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">unsigned</span> <span class="keyword">long</span></span></div><div class="line"><span class="title">calc_delta_fair</span><span class="params">(<span class="keyword">unsigned</span> <span class="keyword">long</span> delta, <span class="keyword">struct</span> sched_entity *se)</span></div><div class="line">&#123;</div><div class="line">	<span class="keyword">if</span> (unlikely(se-&gt;load.weight != NICE_0_LOAD))</div><div class="line">		delta = calc_delta_mine(delta, NICE_0_LOAD, &amp;se-&gt;load);</div><div class="line">	<span class="keyword">return</span> delta;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>进一步看calc_delta_mine函数<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="comment">/*</span></div><div class="line"> * delta *= weight / lw</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">unsigned</span> <span class="keyword">long</span></span></div><div class="line"><span class="title">calc_delta_mine</span><span class="params">(<span class="keyword">unsigned</span> <span class="keyword">long</span> delta_exec, <span class="keyword">unsigned</span> <span class="keyword">long</span> weight,</span></div><div class="line">		<span class="keyword">struct</span> load_weight *lw)</div><div class="line">&#123;</div><div class="line">	u64 tmp;</div><div class="line"></div><div class="line">	<span class="keyword">if</span> (!lw-&gt;inv_weight) &#123;</div><div class="line">		<span class="keyword">if</span> (BITS_PER_LONG &gt; <span class="number">32</span> &amp;&amp; unlikely(lw-&gt;weight &gt;= WMULT_CONST))</div><div class="line">			lw-&gt;inv_weight = <span class="number">1</span>;</div><div class="line">		<span class="keyword">else</span></div><div class="line">			lw-&gt;inv_weight = <span class="number">1</span> + (WMULT_CONST-lw-&gt;weight/<span class="number">2</span>)</div><div class="line">				/ (lw-&gt;weight+<span class="number">1</span>);</div><div class="line">	&#125;</div><div class="line"></div><div class="line">	tmp = (u64)delta_exec * weight;</div><div class="line">	<span class="comment">/*</span></div><div class="line">	 * Check whether we'd overflow the 64-bit multiplication:</div><div class="line">	 */</div><div class="line">	<span class="keyword">if</span> (unlikely(tmp &gt; WMULT_CONST))</div><div class="line">		tmp = SRR(SRR(tmp, WMULT_SHIFT/<span class="number">2</span>) * lw-&gt;inv_weight,</div><div class="line">			WMULT_SHIFT/<span class="number">2</span>);</div><div class="line">	<span class="keyword">else</span></div><div class="line">		tmp = SRR(tmp * lw-&gt;inv_weight, WMULT_SHIFT);</div><div class="line"></div><div class="line">	<span class="keyword">return</span> (<span class="keyword">unsigned</span> <span class="keyword">long</span>)min(tmp, (u64)(<span class="keyword">unsigned</span> <span class="keyword">long</span>)LONG_MAX);</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>我们可以看出，<br><strong>一个调度周期vruntime=实际运行时间*（NICE_0_LOAD/weight）</strong></p>
+<h3 id="进程的切换"><a href="#进程的切换" class="headerlink" title="进程的切换"></a>进程的切换</h3><p>上面的周期调度器scheduler_tick只对进程的虚拟运行时间进行更新并重新进行了排序，供主调度器来调度执行。主调度器在”kernel/sched.c”中schedule()函数实现。其中最重要的一步就是选择下一个要调度执行的进程，在函数pick_next_task中将会进一步调用调度类的pick_next_task，对应就是pick_next_task_fair了。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">struct</span> task_struct *<span class="title">pick_next_task_fair</span><span class="params">(<span class="keyword">struct</span> rq *rq)</span></span></div><div class="line">&#123;</div><div class="line"><span class="comment">/*some code is not presented*/</span></div><div class="line">	<span class="keyword">do</span> &#123;</div><div class="line">		se = pick_next_entity(cfs_rq);<span class="comment">//选择下一个进程调度实体</span></div><div class="line">		set_next_entity(cfs_rq, se);<span class="comment">//设置为当点调度队列下一个调度实体</span></div><div class="line">		cfs_rq = group_cfs_rq(se);</div><div class="line">	&#125; <span class="keyword">while</span> (cfs_rq);</div><div class="line"></div><div class="line">	p = task_of(se);</div><div class="line">	hrtick_start_fair(rq, p);</div><div class="line"></div><div class="line">	<span class="keyword">return</span> p;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>这里调用了pick_next_entity来获取下一个进程调度实体，进一步看其调用的__pick_next_entity函数<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">static</span> <span class="keyword">struct</span> sched_entity *__pick_next_entity(<span class="keyword">struct</span> cfs_rq *cfs_rq)</div><div class="line">&#123;</div><div class="line">	<span class="keyword">struct</span> rb_node *left = cfs_rq-&gt;rb_leftmost;</div><div class="line"></div><div class="line">	<span class="keyword">if</span> (!left)</div><div class="line">		<span class="keyword">return</span> <span class="literal">NULL</span>;</div><div class="line"></div><div class="line">	<span class="keyword">return</span> rb_entry(left, <span class="keyword">struct</span> sched_entity, run_node);</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>终于看到胜利的曙光了，这里就是选择红黑树最左边的子节点了。完成选择下一个调度执行进程后，接下来就是上下文切换，进程调度执行了。关于上下文切换这里不作详细讨论。</p>
+<h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>进程调度器作为多任务操作系统中最重要的一部分，在Linux中进行了很多次革新，目前CFS是作为内核默认的进程调度器。调度过程的实际代码实现远远不止前文所描述的那般简单，需要对代码进行更加深入的跟踪学习，这里仅仅从原理和基本实现过程进行简单介绍。</p>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h1><p>[1]Robert Love,《Linux Kernel Development》,3rd edition<br>[2]<a href="http://www.linuxjournal.com/magazine/completely-fair-scheduler" target="_blank" rel="external">Completely Fair Scheduler</a></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/内核/" rel="tag"># 内核</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2015/07/25/C程序的内存布局/" rel="next" title="C程序的内存布局">
+                <i class="fa fa-chevron-left"></i> C程序的内存布局
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2015/09/30/Xen-4-5-1安装/" rel="prev" title="Xen-4.5.1安装">
+                Xen-4.5.1安装 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/figures/mcdull.jpg"
+               alt="Mcdull" />
+          <p class="site-author-name" itemprop="name">Mcdull</p>
+          <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">40</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">9</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">19</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/wongxingjun" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/wongxingjun" target="_blank" title="Weibo">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                  Weibo
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://www.facebook.com/wongxingjun" target="_blank" title="Facebook">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Facebook
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://liupengs.github.io/" title="Liupeng's Blog" target="_blank">Liupeng's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#进程调度器概述"><span class="nav-number">1.</span> <span class="nav-text">进程调度器概述</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CFS调度器"><span class="nav-number">2.</span> <span class="nav-text">CFS调度器</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CFS实现细节"><span class="nav-number">3.</span> <span class="nav-text">CFS实现细节</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#三个重要问题"><span class="nav-number">3.1.</span> <span class="nav-text">三个重要问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#选择下一个task"><span class="nav-number">3.1.1.</span> <span class="nav-text">选择下一个task</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#tick中断"><span class="nav-number">3.1.2.</span> <span class="nav-text">tick中断</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#红黑树"><span class="nav-number">3.1.3.</span> <span class="nav-text">红黑树</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#实现细节"><span class="nav-number">3.2.</span> <span class="nav-text">实现细节</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#调度实体sched-entity"><span class="nav-number">3.2.1.</span> <span class="nav-text">调度实体sched_entity</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#虚拟运行时间vruntime"><span class="nav-number">3.2.2.</span> <span class="nav-text">虚拟运行时间vruntime</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#进程的切换"><span class="nav-number">3.2.3.</span> <span class="nav-text">进程的切换</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#小结"><span class="nav-number">4.</span> <span class="nav-text">小结</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#参考资料"><span class="nav-number">5.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Mcdull</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+</body>
+</html>

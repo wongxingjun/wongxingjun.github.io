@@ -1,0 +1,729 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="虚拟化,Xen," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/figures/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="本文主要介绍Xen下半虚拟化Guest OS镜像的制作过程。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Xen半虚拟化镜像制作">
+<meta property="og:url" content="http://yoursite.com/2015/04/08/Xen半虚拟化镜像制作/index.html">
+<meta property="og:site_name" content="FlyingMcdull">
+<meta property="og:description" content="本文主要介绍Xen下半虚拟化Guest OS镜像的制作过程。">
+<meta property="og:updated_time" content="2016-11-05T08:24:45.213Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Xen半虚拟化镜像制作">
+<meta name="twitter:description" content="本文主要介绍Xen下半虚拟化Guest OS镜像的制作过程。">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2015/04/08/Xen半虚拟化镜像制作/"/>
+
+
+
+
+
+  <title> Xen半虚拟化镜像制作 | FlyingMcdull </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">FlyingMcdull</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2015/04/08/Xen半虚拟化镜像制作/">
+
+  <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <meta itemprop="name" content="Mcdull">
+    <meta itemprop="description" content="">
+    <meta itemprop="image" content="/figures/mcdull.jpg">
+  </span>
+
+  <span style="display:none" itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+    <meta itemprop="name" content="FlyingMcdull">
+    <span style="display:none" itemprop="logo" itemscope itemtype="http://schema.org/ImageObject">
+      <img style="display:none;" itemprop="url image" alt="FlyingMcdull" src="">
+    </span>
+  </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Xen半虚拟化镜像制作
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2015-04-08T15:50:21+08:00">
+                2015-04-08
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+              <span class="post-meta-divider">|</span>
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Xen/" itemprop="url" rel="index">
+                    <span itemprop="name">Xen</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+
+          
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>本文主要介绍Xen下半虚拟化Guest OS镜像的制作过程。<br><a id="more"></a></p>
+<h1 id="创建映像文件"><a href="#创建映像文件" class="headerlink" title="创建映像文件"></a>创建映像文件</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">dd if=/dev/zero of=vm1.img bs=1M seek=8192 count=1</div></pre></td></tr></table></figure>
+<p>创建大小为 8G ，名为 vm1.img 的映像文件</p>
+<h1 id="格式化映像为linux文件系统"><a href="#格式化映像为linux文件系统" class="headerlink" title="格式化映像为linux文件系统"></a>格式化映像为linux文件系统</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">/sbin/mkfs.ext3 vm1.img</div></pre></td></tr></table></figure>
+<p>提示 Proceed anyway? (y,n) 输入y 回车就可以了</p>
+<h1 id="挂载映像"><a href="#挂载映像" class="headerlink" title="挂载映像"></a>挂载映像</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">mkdir /mnt/vm1</div><div class="line">mount -o loop vm1.img /mnt/vm1</div></pre></td></tr></table></figure>
+<p>这样我们就可以向 vm1.img中存放文件了</p>
+<h1 id="拷贝系统文件到虚拟磁盘中"><a href="#拷贝系统文件到虚拟磁盘中" class="headerlink" title="拷贝系统文件到虚拟磁盘中"></a>拷贝系统文件到虚拟磁盘中</h1><p>将物理机里面的文件拷贝到 /mnt/vm1中。如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">cp -ax /&#123;root,dev,var,etc,usr,bin,sbin,lib,lib64&#125; /mnt/vm1/</div><div class="line">mkdir /mnt/vm1/&#123;proc,sys,home,tmp&#125;</div></pre></td></tr></table></figure></p>
+<h1 id="修改-mnt-vm1-etc-fstab文件"><a href="#修改-mnt-vm1-etc-fstab文件" class="headerlink" title="修改/mnt/vm1/etc/fstab文件"></a>修改/mnt/vm1/etc/fstab文件</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">echo &quot;/dev/xvda1 / ext3 defaults 1 1&quot; &gt; /mnt/vm1/etc/fstab</div></pre></td></tr></table></figure>
+<p>xen4.0不支持hda ，sda，要改成 xvda<br>否则会出现如下错误：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">mount : could not find filesystem &apos;/dev/root&apos; </div><div class="line">setup other filesystem </div><div class="line">setting up now root fs </div><div class="line">set up root :moving /dev faild:No such file or directory </div><div class="line">no fstab.sys,mounting inernal defaults </div><div class="line">setuproot:error mounting /proc :No such file or directory </div><div class="line">setuproot:error mounting /sys:No such file or directory </div><div class="line">switching to new root and running init </div><div class="line">umounting old /dev</div><div class="line">umounting old /proc </div><div class="line">umounting old /sys</div><div class="line">switchroot : mount faild : No such file or directory </div><div class="line">kernel panic:not syncing :attempted to kill init</div></pre></td></tr></table></figure></p>
+<h1 id="卸载-mnt-vm1："><a href="#卸载-mnt-vm1：" class="headerlink" title="卸载/mnt/vm1："></a>卸载/mnt/vm1：</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">umount /mnt/vm1</div></pre></td></tr></table></figure>
+<p>到此半虚拟的镜像就制作完成</p>
+<h1 id="修改配置文件"><a href="#修改配置文件" class="headerlink" title="修改配置文件"></a>修改配置文件</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">cp /etc/xen/xmexample1 ./vm1.cfg</div><div class="line">vim vm1.cfg</div></pre></td></tr></table></figure>
+<p>修改完成后内容如下 ,括号里面为注释：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">kernel = &quot;/boot/vmlinuz-2.6.31.13&quot; （虚拟机内核） </div><div class="line">ramdisk = &quot;/boot/initrd-2.6.31.13.img&quot; （虚拟机的内存虚拟磁盘） </div><div class="line">memory = 512（指定虚拟机的内存大小为 512M）</div><div class="line">name = ”pvops“ （虚拟机的名字） </div><div class="line">vcpus = 2 （指定虚拟机的 cpu个数为2 个）</div><div class="line">#vif = [ &apos;mac=00:16:3e:00:00:99, bridge=xenbr0&apos; ] （网卡参数） </div><div class="line">disk = [ &apos;file:/root/vm1.img,xvda1,w&apos; ] （虚拟机磁盘，将文件vm1.img映射成 xvda1)</div><div class="line">root = &quot;/dev/xvda1 ro&quot; (虚拟机从xvda1 启动)</div></pre></td></tr></table></figure></p>
+<p>这里的 root=”/dev/xvda1 ro” 要和第5步中修改的 fstab里面写的一模一样，否则就无法启动</p>
+<p>Extra=”4 console=hvc0”</p>
+<h1 id="启动虚拟机："><a href="#启动虚拟机：" class="headerlink" title="启动虚拟机："></a>启动虚拟机：</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">xm create vm1.cfg</div></pre></td></tr></table></figure>
+<p>————————–Update————————–</p>
+<h1 id="开启虚拟机如果遇到错误"><a href="#开启虚拟机如果遇到错误" class="headerlink" title="开启虚拟机如果遇到错误"></a>开启虚拟机如果遇到错误</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">[   75.915187] dracut Warning: Initial SELinux policy load failed.</div><div class="line">[   75.915223] dracut: FATAL: Initial SELinux policy load failed. Machine in enforcing mode. To disable selinux, add selinux=0 to the kernel command line.</div><div class="line">[   75.915234] dracut: Refusing to continue</div><div class="line">[   75.915376] dracut Warning: Signal caught!</div><div class="line">[   75.917802] dracut Warning: dracut: FATAL: Initial SELinux policy load failed. Machine in enforcing mode. To disable selinux, add selinux=0 to the kernel command line.</div><div class="line">[   75.917838] dracut Warning: dracut: Refusing to continue</div><div class="line">[   75.918033] Kernel panic - not syncing: Attempted to kill init!</div><div class="line">[   75.918041] Pid: 1, comm: init Not tainted 2.6.31.8 #</div></pre></td></tr></table></figure>
+<p>在虚拟机配置文件后加一行禁用selinux<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">extra=&quot;selinux=0&quot;</div></pre></td></tr></table></figure></p>
+<h1 id="用和制作镜像的内核不一样的内核版本启动虚拟机"><a href="#用和制作镜像的内核不一样的内核版本启动虚拟机" class="headerlink" title="用和制作镜像的内核不一样的内核版本启动虚拟机"></a>用和制作镜像的内核不一样的内核版本启动虚拟机</h1><p>这时候需要把物理机上对应的内核模块拷贝进虚拟机镜像<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">cp -ax /lib/modules/(内核版本)  /mnt/vm1/lib/modules/</div></pre></td></tr></table></figure></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/虚拟化/" rel="tag"># 虚拟化</a>
+          
+            <a href="/tags/Xen/" rel="tag"># Xen</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2015/04/08/Linux内核-进程/" rel="next" title="Linux内核-进程">
+                <i class="fa fa-chevron-left"></i> Linux内核-进程
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2015/04/08/修改Xen虚拟机镜像文件/" rel="prev" title="修改Xen虚拟机镜像文件">
+                修改Xen虚拟机镜像文件 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/figures/mcdull.jpg"
+               alt="Mcdull" />
+          <p class="site-author-name" itemprop="name">Mcdull</p>
+          <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">40</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">9</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">19</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/wongxingjun" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/wongxingjun" target="_blank" title="Weibo">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                  Weibo
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://www.facebook.com/wongxingjun" target="_blank" title="Facebook">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Facebook
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://liupengs.github.io/" title="Liupeng's Blog" target="_blank">Liupeng's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#创建映像文件"><span class="nav-number">1.</span> <span class="nav-text">创建映像文件</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#格式化映像为linux文件系统"><span class="nav-number">2.</span> <span class="nav-text">格式化映像为linux文件系统</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#挂载映像"><span class="nav-number">3.</span> <span class="nav-text">挂载映像</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#拷贝系统文件到虚拟磁盘中"><span class="nav-number">4.</span> <span class="nav-text">拷贝系统文件到虚拟磁盘中</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#修改-mnt-vm1-etc-fstab文件"><span class="nav-number">5.</span> <span class="nav-text">修改/mnt/vm1/etc/fstab文件</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#卸载-mnt-vm1："><span class="nav-number">6.</span> <span class="nav-text">卸载/mnt/vm1：</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#修改配置文件"><span class="nav-number">7.</span> <span class="nav-text">修改配置文件</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#启动虚拟机："><span class="nav-number">8.</span> <span class="nav-text">启动虚拟机：</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#开启虚拟机如果遇到错误"><span class="nav-number">9.</span> <span class="nav-text">开启虚拟机如果遇到错误</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#用和制作镜像的内核不一样的内核版本启动虚拟机"><span class="nav-number">10.</span> <span class="nav-text">用和制作镜像的内核不一样的内核版本启动虚拟机</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Mcdull</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+</body>
+</html>

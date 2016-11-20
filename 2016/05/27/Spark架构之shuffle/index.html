@@ -1,0 +1,798 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Spark," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/figures/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="本文针对Spark设计中shuffle部分进行详细介绍，是一篇大牛博客的译文，翻译外文博客只是为了记录自己阅读过程并存档方便随时回顾。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark架构之shuffle">
+<meta property="og:url" content="http://yoursite.com/2016/05/27/Spark架构之shuffle/index.html">
+<meta property="og:site_name" content="FlyingMcdull">
+<meta property="og:description" content="本文针对Spark设计中shuffle部分进行详细介绍，是一篇大牛博客的译文，翻译外文博客只是为了记录自己阅读过程并存档方便随时回顾。">
+<meta property="og:image" content="http://yoursite.com/figures/spark-architecture-shuffle/Spark-Shuffle-Design.png">
+<meta property="og:image" content="http://yoursite.com/figures/spark-architecture-shuffle/spark_hash_shuffle_no_consolidation.png">
+<meta property="og:image" content="http://yoursite.com/figures/spark-architecture-shuffle/spark_hash_shuffle_with_consolidation.png">
+<meta property="og:image" content="http://yoursite.com/figures/spark-architecture-shuffle/spark_sort_shuffle.png">
+<meta property="og:image" content="http://yoursite.com/figures/spark-architecture-shuffle/spark_tungsten_sort_shuffle.png">
+<meta property="og:updated_time" content="2016-11-05T08:24:45.193Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Spark架构之shuffle">
+<meta name="twitter:description" content="本文针对Spark设计中shuffle部分进行详细介绍，是一篇大牛博客的译文，翻译外文博客只是为了记录自己阅读过程并存档方便随时回顾。">
+<meta name="twitter:image" content="http://yoursite.com/figures/spark-architecture-shuffle/Spark-Shuffle-Design.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2016/05/27/Spark架构之shuffle/"/>
+
+
+
+
+
+  <title> Spark架构之shuffle | FlyingMcdull </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">FlyingMcdull</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/05/27/Spark架构之shuffle/">
+
+  <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <meta itemprop="name" content="Mcdull">
+    <meta itemprop="description" content="">
+    <meta itemprop="image" content="/figures/mcdull.jpg">
+  </span>
+
+  <span style="display:none" itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+    <meta itemprop="name" content="FlyingMcdull">
+    <span style="display:none" itemprop="logo" itemscope itemtype="http://schema.org/ImageObject">
+      <img style="display:none;" itemprop="url image" alt="FlyingMcdull" src="">
+    </span>
+  </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Spark架构之shuffle
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2016-05-27T09:44:54+08:00">
+                2016-05-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+              <span class="post-meta-divider">|</span>
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark/" itemprop="url" rel="index">
+                    <span itemprop="name">Spark</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+
+          
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>本文针对Spark设计中shuffle部分进行详细介绍，是一篇大牛<a href="https://0x0fff.com/spark-architecture-shuffle/" target="_blank" rel="external">博客</a>的译文，翻译外文博客只是为了记录自己阅读过程并存档方便随时回顾。<a id="more"></a></p>
+<p>有人经常会问通常的shuflle到底是个怎样的过程？想象一下假设你有一个表单，上面有一串的电话通信记录详情，然后你想计算每天到底有几次通信。这种情况下你会把“day”作为你的key，然后对每条记录你就将1作为其值。之后你就将每个key的值加起来得到你要的结果，也就是每天的通信记录数。但是当你将数据存储在一个集群中，你又如何将分布在不同机器上的相同key的value相加呢？唯一的办法就是将所有相同key的value放在同一个机器上，然后你才可以像之前说的那样相加。<br><img src="/figures/spark-architecture-shuffle/Spark-Shuffle-Design.png" alt=""></p>
+<p>有很多task需要在集群中讲数据进行shuffle操作，比如table join—将两个表单按照id域连接，你就必须保证两个表单中相同id的数据都存储在相同的数据块中。假设表的key在1到1000000之间。将数据存储在相同块的意思就是比如说两个表中key在1-100的记录都存储在单个的分区或者块中，这样就不需要对第一个表单的每个分区都去遍历第二个表单我们就可以将分区和分区合并，因为我们知道key在1-100的记录只存储在这两个分区中。为了达到这种效果两个表单要有相同数量的分区，这样就可以大大减少计算量。通过上述举例你可以知道shuffle是多么重要吧！</p>
+<p>为了方便讨论这个主题，我依旧沿用MapReduce的命名规则。在shuffle操作中，从源executor发送数据的称作mapper，在目标executor中接受数据的task称作reducer，它们之间的操作就是shuffle。</p>
+<p>一般来说shuffle有两个非常重要的压缩参数：</p>
+<ul>
+<li><strong>spark.shuffle.compress</strong> 决定系统是否压缩shuffle的输出数据</li>
+<li><strong>spark.shuffle.spill.compress</strong> 决定是否压缩shuffle临时溢写出来的文件</li>
+</ul>
+<p>两个参数默认都是true，都用<em>spark.io.compression.codec</em>编码方式来压缩数据，默认是<em>snappy</em>。</p>
+<p>你可能知道Spark中有多种shuffle实现方式，你用哪种实现方式取决于<em>spark.shuffle.manager</em>参数。3个可能的选择有：hash，sort，tungsten-sort，从Spark-1.2.0开始默认的shuffle方式都是sort。</p>
+<h1 id="Hash-Shuffle"><a href="#Hash-Shuffle" class="headerlink" title="Hash Shuffle"></a>Hash Shuffle</h1><p>Spark-1.2.0之前默认的shuffle方式是hash（spark.shuffle.manager=hash），但是它有很多缺陷，主要因为其创建了大量文件，每个mapper task会为每个独立的reducer创建一个独立的文件，最终就会创建<strong>M*R</strong>个文件出来，M是mapper数，R是reducer数。在mapper和reducer较多的时候这会导致很严重的问题，输出的buffer大小，文件系统打开文件数和创建和删除文件的速度将会大受影响。有一个雅虎的例子可以<a href="https://spark-summit.org/2013/wp-content/uploads/2013/10/Li-AEX-Spark-yahoo.pdf" target="_blank" rel="external">参考</a>，有46k个mapper和46k个reducer就会在集群中产生20亿个文件。</p>
+<p>hash shuffler的实现逻辑相当简单粗暴：计算所有的reducer个数作为reduce端的分区个数，然后为每个分区创建一个独立文件，循环遍历需要输出的记录，然后计算出目标分区并将记录写到对应文件中，过程如下图：<br><img src="/figures/spark-architecture-shuffle/spark_hash_shuffle_no_consolidation.png" alt="hash-shuffle"><br>hash shuffler有一个优化参数<em>spark.shuffle.consolidateFiles</em>（默认false），当设置成true时，mapper的输出文件就会被合并。如果你的集群有E个executors（YARN上用–num-executor指定），每个executor有C个core（YARN上用spark.executor.cores或者–executor-cores指定），每个task用T个CPU（spark.task.cpus），那么集群中的execution slots数就是<strong>E*C/T</strong>，shuffle期间将会创建<strong>E*C/T*R</strong>个文件。如果有100个executor，每个executor有10个core，每个task对应1个core，有46k个reducer的话，通过合并操作可以将文件数从20亿减少到4600w，对性能将会有极大提升。这个特性<a href="https://github.com/apache/spark/blob/branch-1.6/core/src/main/scala/org/apache/spark/shuffle/FileShuffleBlockResolver.scala" target="_blank" rel="external">实现方式</a>很简单：它创建一个输出文件pool而非为每个reducer创建文件。当map task开始输出数据时，就会从这个pool中请求R个文件的分组。结束时就将这R个文件分组返还给pool。因为每个executor只会并行执行<strong>C/T</strong>个task，所以只会创建<strong>C/T</strong>个输出文件分组，每个分组有R个文件。在这<strong>C/T</strong>个task结束后，每个下一个map task都可以重用pool中已有的分组。下图是实现过程：<br><img src="/figures/spark-architecture-shuffle/spark_hash_shuffle_with_consolidation.png" alt="hash-shuffle-consolidation"></p>
+<ul>
+<li><strong>优点</strong></li>
+</ul>
+<ol>
+<li>快速—因为不需要排序，也不需要维护hash table</li>
+<li>数据排序没有内存开销</li>
+<li>没有IO开销- 数据只写到HDD一次并读一次</li>
+</ol>
+<ul>
+<li><strong>缺点</strong></li>
+</ul>
+<ol>
+<li>当分区数较大，输出文件数较大会导致性能下降</li>
+<li>向文件系统写入大量文件会导致IO随机IO的倾斜（也就是随机IO变多的意思），而通常随机IO比顺序IO要慢100倍<br>关于在单个文件系统百万级文件IO操作变慢可以参考<a href="http://events.linuxfoundation.org/slides/2010/linuxcon2010_wheeler.pdf" target="_blank" rel="external">这里</a></li>
+</ol>
+<p>当然，当数据被写进文件时会被序列化或者压缩（可选），被读取时则刚好相反—解压并反序列化。拉取数据一端的一个重要参数<em>spark.reducer.maxSizeInFlight</em>（默认是48M）决定每个reducer从远端executor请求的数据量。这个数据量是由来自不同executor上的5个并行请求平分，这样来加快这个过程。如果你增大这个数据量，你的reducer就会以更大的数据块来向map task输出请求数据，这样可以提升性能但同时也会增加reducer的内存开销。</p>
+<p>如果reduce端不强制对记录排序，那reducer就只返回一个具有对map输出依赖关系的迭代器，但如果需要排序的话就需要将数据全部拉取过来并使用<a href="https://github.com/apache/spark/blob/master/core/src/main/scala/org/apache/spark/util/collection/ExternalSorter.scala" target="_blank" rel="external">ExternalSorter</a>进行排序。</p>
+<h1 id="Sort-Shuffle"><a href="#Sort-Shuffle" class="headerlink" title="Sort Shuffle"></a>Sort Shuffle</h1><p>从Spark-1.2.0开始，sort shuffle被作为默认的shuffle算法（通过spark.shuffle.manager=sort开启）。大体上讲其实是尝试实现Hadoop MapReduce所使用的shuffle逻辑。hash shuffle中为每个reducer输出一个独立的文件，但sort shuffle中就更智能一点：每个输出的独立文件都根据reducer的id排序并索引，这样就可以通过获取相关数据块在文件中的位置信息，在读取之前做一个简单的fseek，很容易就可以拉取和reducer X相关联的数据块了。但显然reducer数较少时hash方式比sort方式要快，因此sort shuffle有一个退化机制：当reducer数少于<em>spark.shuffle.sort.bypassMergeThreshold</em>（默认200）时，就用将数据hash进多个独立文件然后将之合并到一个独立文件中，这一部分逻辑在一个独立类<a href="https://github.com/apache/spark/blob/master/core/src/main/java/org/apache/spark/shuffle/sort/BypassMergeSortShuffleWriter.java" target="_blank" rel="external">BypassMergeSortShufflerWriter</a>中实现。</p>
+<p>sort shuffle一个有意思的地方就是它在map端对数据排序，但是在reduce端不合并排序结果—除非需要对数据排序才会对数据进行重排序。Clouderea有这方面的<a href="http://blog.cloudera.com/blog/2015/01/improving-sort-performance-in-apache-spark-its-a-double/" target="_blank" rel="external">经验</a>。他们开始实现对mapper输出先排序然后在reduce端合并，而不是重排序。你可能知道在Spark的reduce端排序是用<a href="https://en.wikipedia.org/wiki/Timsort" target="_blank" rel="external">TimSort</a>，这是一个十分优异的排序算法，它利用了预先排序的输入。</p>
+<p>但是当内存不足以存储map输出怎么办呢？这时候你可能需要将临时数据溢写到磁盘上，<em>spark.shuffle.spill</em>参数决定是否溢写，默认是开启的。如果你禁止了并且没有足够内存存储map输出，你就会收到OOM错误。</p>
+<p>用来在溢写到磁盘之前存储map输出的内存大小为<strong>JVM Heap Size*spark.shuffle.memoryFraction*spark.shuffle.safetyFraction</strong>，默认是<strong>JVM Heap Size*0.2*0.8 = JVM Heap Size*0.16</strong>。你要知道如果你在同一个executor中跑很多线程（将spark.executor.cores/spark.task.cpus设置大于1），那么每个task存储map输出的内存大小就是<strong>JVM Heap Size*spark.shuffle.memoryFraction*spark.shuffle.safetyFraction/spark.executor.cores*spark.task.cpus</strong>， 其他选项默认的话，2个core就有<strong>0.08*JVM Heap Size</strong>。</p>
+<p>Spark内部用<a href="https://github.com/apache/spark/blob/branch-1.5/core/src/main/scala/org/apache/spark/util/collection/AppendOnlyMap.scala" target="_blank" rel="external">AppendOnlyMap</a>结构来在内存中存储map输出。有趣的是，Spark用自己的Scala实现hash table- 用<a href="http://en.wikipedia.org/wiki/Quadratic_probing" target="_blank" rel="external">quadratic probing</a>hash并存储相同数组的key和value。采用了Google Guava库中的murmur3_32作为hash函数。</p>
+<p>hash table允许Spark直接在table上应用combiner逻辑- 每个已有的key新加入的value都用已有的value来进行combine。combine的输出结果存为一个新的value。</p>
+<p>当发生溢写的时候，会在存储在当前的ApppendOnlyMap中的数据上调用排序器对其进行TimSort，然后数据被写到磁盘上。</p>
+<p>当发生溢写的时候或者再没有mapper输出时，排序后的输出就被写到磁盘上，即保证数据落盘。数据是否罗盘取决于OS的设置（比如文件buffer），但是它由OS决定，Spark只发送写指令。</p>
+<p>每个溢写的文件都独立被写入磁盘，只有在数据被reducer请求并且要实时合并时才会进行合并操作，也就是说不会像Hadoop MapReduce中那样调用磁盘合并器，只是从独立溢写文件中动态收集数据并用Min Heap来合并。过程如下图：<br><img src="/figures/spark-architecture-shuffle/spark_sort_shuffle.png" alt="spark-sort-shuffle"></p>
+<ul>
+<li><strong>优点</strong></li>
+</ul>
+<ol>
+<li>map端创建的文件数小一些</li>
+<li>随机IO操作少一些，大部分是顺序读写</li>
+</ol>
+<ul>
+<li><strong>缺点</strong></li>
+</ul>
+<ol>
+<li>排序比hash慢，有时候可能要为你的集群调节一下bypassMergeThreshold参数来找到一个最佳配置，但通常大多数集群默认的参数都太大了</li>
+<li>除非你用SSD来存储Spark shuffle临时数据，否则的话hash shuffle要更好一点。</li>
+</ol>
+<h1 id="Unsafe-Shuflle-or-Tungsten-Sort"><a href="#Unsafe-Shuflle-or-Tungsten-Sort" class="headerlink" title="Unsafe Shuflle or Tungsten Sort"></a>Unsafe Shuflle <em>or</em> Tungsten Sort</h1><p>Spark-1.4.0以上版本中Tungsten sort shuffle可以通过<em>spark.shuffle.manager=tungsten-sort</em>开启。其思想是基于<a href="https://issues.apache.org/jira/browse/SPARK-7081" target="_blank" rel="external">Tungsten Project</a>，很有创意。在shuffle中做的优化如下：</p>
+<ul>
+<li>直接在序列化的二进制数据上操作，不再需要反序列化。它用了不安全（sun.misc.Unsafe）内存拷贝函数来直接拷贝数据，它可以更方便在序列化数据上操作，因为数据只是字节数组而已。</li>
+<li>使用cache高效的<a href="https://github.com/apache/spark/blob/master/core/src/main/java/org/apache/spark/shuffle/sort/ShuffleExternalSorter.java" target="_blank" rel="external">ShuffleExternalSorter</a>排序器来对压缩记录指针和分区id数组排序。通过在排序数组中每条记录使用8字节空间可以提升cache效率。</li>
+<li>因为记录没有反序列化，溢写序列化数据可以直接操作。</li>
+<li>当shuffle压缩编码方式支持序列化流级联时，自动使用额外的溢写合并优化。当前Spark的LZF序列化器支持，并且需要<em>shuffle.unsafe.fastMergeEnabled</em>被开启。</li>
+</ul>
+<p>下一步的优化中，这个算法引入了<a href="https://issues.apache.org/jira/browse/SPARK-7542" target="_blank" rel="external">off-heap storage buffer</a></p>
+<p>只有当以下所有条件满足时才会使用这种shuffle实现：</p>
+<ul>
+<li>shuffle依赖中没有aggregation。aggregation意味着需要将数据反序列化存储然后才能将新来的value合并。这种情况下就无法利用这种shuffle直接操作序列化数据的优势</li>
+<li>shuffle序列化器支持序列化value的重定位（KryoSerializer和Spark SQL的自定义的serializer支持）</li>
+<li>shuffle产生的输出分区个数少于16777216</li>
+<li>单个序列化记录不超过128M</li>
+</ul>
+<p>同时要知道这种shuffle中只根据分区id进行排序，意味着用合并在reduce端预先排序的数据的优化和TimSort利用预排序数据的优势将会不复存在。这个操作中的排序是基于8-byte value的，每个value都对指向序列化数据的link和分区数进行编码，这就是为什么对输出分区个数限制在16777216的原因。</p>
+<p>具体实现过程如下图：<br><img src="/figures/spark-architecture-shuffle/spark_tungsten_sort_shuffle.png" alt=""></p>
+<p>每个溢写的数据块首先将描述指针数组排序然后输出一个索引的分区文件，然后将这些分区合并到一个索引的输出文件中。</p>
+<ul>
+<li><strong>优点</strong></li>
+</ul>
+<ol>
+<li>性能提升</li>
+</ol>
+<ul>
+<li><strong>缺点</strong></li>
+</ul>
+<ol>
+<li>目前不能处理mapper端的数据排序</li>
+<li>目前不能提供off-heap排序buffer</li>
+<li>目前不稳定</li>
+</ol>
+<p><strong>参考文献</strong><br><a href="https://0x0fff.com/spark-architecture-shuffle/" target="_blank" rel="external">Spark Architecture: Shuffle</a></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Spark/" rel="tag"># Spark</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/05/26/Spark内存管理/" rel="next" title="Spark内存管理">
+                <i class="fa fa-chevron-left"></i> Spark内存管理
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/07/07/Scala中下划线-用法小结/" rel="prev" title="Scala中下划线_用法小结">
+                Scala中下划线_用法小结 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/figures/mcdull.jpg"
+               alt="Mcdull" />
+          <p class="site-author-name" itemprop="name">Mcdull</p>
+          <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">40</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">9</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">19</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/wongxingjun" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/wongxingjun" target="_blank" title="Weibo">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                  Weibo
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://www.facebook.com/wongxingjun" target="_blank" title="Facebook">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Facebook
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://liupengs.github.io/" title="Liupeng's Blog" target="_blank">Liupeng's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Hash-Shuffle"><span class="nav-number">1.</span> <span class="nav-text">Hash Shuffle</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Sort-Shuffle"><span class="nav-number">2.</span> <span class="nav-text">Sort Shuffle</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Unsafe-Shuflle-or-Tungsten-Sort"><span class="nav-number">3.</span> <span class="nav-text">Unsafe Shuflle or Tungsten Sort</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Mcdull</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+</body>
+</html>

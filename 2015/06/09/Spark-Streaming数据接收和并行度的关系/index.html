@@ -1,0 +1,726 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="性能,Spark Streaming," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/figures/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="Spark Streaming在运行过程中数据来源分为两种，一种是从例如hdfs的文件系统直接读取，另外就是实时从网络接收数据，其中后者需要由运行在worker节点上的receiver来完成，具体接收数据过程在源码分析中已经简要介绍。这次就receiver和系统并行度的关系进行探讨和实验。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark Streaming数据接收和并行度的关系">
+<meta property="og:url" content="http://yoursite.com/2015/06/09/Spark-Streaming数据接收和并行度的关系/index.html">
+<meta property="og:site_name" content="FlyingMcdull">
+<meta property="og:description" content="Spark Streaming在运行过程中数据来源分为两种，一种是从例如hdfs的文件系统直接读取，另外就是实时从网络接收数据，其中后者需要由运行在worker节点上的receiver来完成，具体接收数据过程在源码分析中已经简要介绍。这次就receiver和系统并行度的关系进行探讨和实验。">
+<meta property="og:updated_time" content="2016-11-05T08:24:45.156Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Spark Streaming数据接收和并行度的关系">
+<meta name="twitter:description" content="Spark Streaming在运行过程中数据来源分为两种，一种是从例如hdfs的文件系统直接读取，另外就是实时从网络接收数据，其中后者需要由运行在worker节点上的receiver来完成，具体接收数据过程在源码分析中已经简要介绍。这次就receiver和系统并行度的关系进行探讨和实验。">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2015/06/09/Spark-Streaming数据接收和并行度的关系/"/>
+
+
+
+
+
+  <title> Spark Streaming数据接收和并行度的关系 | FlyingMcdull </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">FlyingMcdull</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2015/06/09/Spark-Streaming数据接收和并行度的关系/">
+
+  <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <meta itemprop="name" content="Mcdull">
+    <meta itemprop="description" content="">
+    <meta itemprop="image" content="/figures/mcdull.jpg">
+  </span>
+
+  <span style="display:none" itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+    <meta itemprop="name" content="FlyingMcdull">
+    <span style="display:none" itemprop="logo" itemscope itemtype="http://schema.org/ImageObject">
+      <img style="display:none;" itemprop="url image" alt="FlyingMcdull" src="">
+    </span>
+  </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Spark Streaming数据接收和并行度的关系
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2015-06-09T15:19:37+08:00">
+                2015-06-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+              <span class="post-meta-divider">|</span>
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark-Streaming/" itemprop="url" rel="index">
+                    <span itemprop="name">Spark Streaming</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+
+          
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>Spark Streaming在运行过程中数据来源分为两种，一种是从例如hdfs的文件系统直接读取，另外就是实时从网络接收数据，其中后者需要由运行在worker节点上的receiver来完成，具体接收数据过程在源码分析中已经简要介绍。这次就receiver和系统并行度的关系进行探讨和实验。<br><a id="more"></a></p>
+<h1 id="数据接收"><a href="#数据接收" class="headerlink" title="数据接收"></a>数据接收</h1><p>Spark Streaming通过运行在worker上的executor中的receiver来接收数据，并将其存为RDD分区（内存不够会spill到磁盘）供后续计算用。如果想要接收多个InputDStream，可以设置多个receiver同时运行在多个worker node上，同时接收数据，在处理的时候可以用union转换操作来合并成一个DStream然后进行操作。receiver会消耗worker上的一个slot，因此集群的core数量要多于receiver数量，不然就只能接收数据，不能处理数据了。</p>
+<h1 id="数据接收与并行度"><a href="#数据接收与并行度" class="headerlink" title="数据接收与并行度"></a>数据接收与并行度</h1><p>receiver从网络中接收数据，反序列化之后存入Spark内存中，因此所在的节点对CPU和网络资源需求高于其他计算节点（甚至有时候设置不当，内存不足，数据会溢写到磁盘中）。实际部署中有可能会遇到receiver成为整个系统的性能瓶颈。这种情况下，可以通过以下方式来适当调整：</p>
+<ul>
+<li>设置多个receiver，并行接收数据，创建多个DStream最后union统一处理</li>
+<li>设置合适的blockInterval，过小会导致block过多，最后调度时task过多，增加调度时延。过大会导致task过少，集群的core利用不足，全局并行度变差。</li>
+<li>对单个receiver接收的DStream进行repartition操作，将该DStream内的RDD进行重新分区，增加分区数，可以将接收到的batch分散于集群中的其他节点上，然后再进行计算处理，增加并行度。</li>
+</ul>
+<h1 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h1><p>用一个简单的SocketStream小程序，在两种方式下进行测试。集群中有7个节点，1个为master，其余为worker，配置2GB内存，2 cores.只用一个receiver来接收socketStream。分析日志文件，查看调度记录。</p>
+<h2 id="单个receiver"><a href="#单个receiver" class="headerlink" title="单个receiver"></a>单个receiver</h2><p>直接一个receiver接收数据，日志分析发现有近88%的调度发生在receiver所在节点。其余worker平均2%。</p>
+<h2 id="增加receiver"><a href="#增加receiver" class="headerlink" title="增加receiver"></a>增加receiver</h2><p>增加一个receiver后，两个receiver接收数据，日志分析发现task调度比例43%和42%集中在两个receiver节点，其余worker平均3%-4%。</p>
+<h2 id="重新分区"><a href="#重新分区" class="headerlink" title="重新分区"></a>重新分区</h2><p>单个receiver情况下，对InputDStream进行重新分区，分为3个分区，结果发现task调度比例58%集中在receiver节点，其余worker节点平均8%-9%。</p>
+<blockquote>
+<p>重新分区会使用RDD.repartition()函数来进行重新分区，repartition()又进一步调用了RDD的一个转换操作函数coalesce()，这个函数可以将RDD进行重新分区。<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">repartition</span></span>(numPartitions: <span class="type">Int</span>)(<span class="keyword">implicit</span> ord: <span class="type">Ordering</span>[<span class="type">T</span>] = <span class="literal">null</span>): <span class="type">RDD</span>[<span class="type">T</span>] = &#123;</div><div class="line">  coalesce(numPartitions, shuffle = <span class="literal">true</span>)</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>shuffle=false时，只能减少分区，shuffle=true时，可以增加分区，将一个RDD平均划分到numPartitions个分区中，实现细节这里不讨论。shuffle操作的代价是明显的，如果设置不当，甚至会导致重新分区后Streaming的性能低于不分区的情况。</p>
+</blockquote>
+<h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>数据接收对Spark Streaming的并行度有直接影响，这里主要关注的是receiver的设置对并行度的影响，其实各有优缺点。比如重新分区，在实验中发现重新分区的确可以提高并行度，但时延却没有降低（有时候反而增加），可能是由于虚拟机集群的缘故。</p>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h1><p>[1] <a href="http://spark.apache.org/docs/latest/streaming-programming-guide.html#input-dstreams-and-receivers" target="_blank" rel="external">Apache Spark Document</a><br>[2] <a href="http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.streaming.dstream.DStream" target="_blank" rel="external">Apache Spark API</a></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/性能/" rel="tag"># 性能</a>
+          
+            <a href="/tags/Spark-Streaming/" rel="tag"># Spark Streaming</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2015/05/26/Spark作业调度日志获取与分析/" rel="next" title="Spark作业调度日志获取与分析">
+                <i class="fa fa-chevron-left"></i> Spark作业调度日志获取与分析
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2015/06/18/Bochs模拟器的使用/" rel="prev" title="Bochs模拟器的使用">
+                Bochs模拟器的使用 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/figures/mcdull.jpg"
+               alt="Mcdull" />
+          <p class="site-author-name" itemprop="name">Mcdull</p>
+          <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">40</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">9</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">19</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/wongxingjun" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/wongxingjun" target="_blank" title="Weibo">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                  Weibo
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://www.facebook.com/wongxingjun" target="_blank" title="Facebook">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Facebook
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://liupengs.github.io/" title="Liupeng's Blog" target="_blank">Liupeng's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#数据接收"><span class="nav-number">1.</span> <span class="nav-text">数据接收</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#数据接收与并行度"><span class="nav-number">2.</span> <span class="nav-text">数据接收与并行度</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#实验"><span class="nav-number">3.</span> <span class="nav-text">实验</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#单个receiver"><span class="nav-number">3.1.</span> <span class="nav-text">单个receiver</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#增加receiver"><span class="nav-number">3.2.</span> <span class="nav-text">增加receiver</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#重新分区"><span class="nav-number">3.3.</span> <span class="nav-text">重新分区</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#小结"><span class="nav-number">4.</span> <span class="nav-text">小结</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#参考资料"><span class="nav-number">5.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Mcdull</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+</body>
+</html>

@@ -1,0 +1,729 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="源码,Spark Streaming," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/figures/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="上文讲到了wordCount示例程序运行时的启动流程，依旧停留在框架理解上。下面开始详细介绍一下Spark Streaming中是如何接收和存储流数据。实际应用中Streaming的输入源有多种，这里仍旧以wordCount为例，对socketStream进行介绍。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark Streaming学习笔记（四）">
+<meta property="og:url" content="http://yoursite.com/2015/03/26/Spark-Streaming学习笔记（四）/index.html">
+<meta property="og:site_name" content="FlyingMcdull">
+<meta property="og:description" content="上文讲到了wordCount示例程序运行时的启动流程，依旧停留在框架理解上。下面开始详细介绍一下Spark Streaming中是如何接收和存储流数据。实际应用中Streaming的输入源有多种，这里仍旧以wordCount为例，对socketStream进行介绍。">
+<meta property="og:image" content="http://yoursite.com/figures/spark-learning/receiveStream.png">
+<meta property="og:updated_time" content="2016-11-05T08:24:45.151Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Spark Streaming学习笔记（四）">
+<meta name="twitter:description" content="上文讲到了wordCount示例程序运行时的启动流程，依旧停留在框架理解上。下面开始详细介绍一下Spark Streaming中是如何接收和存储流数据。实际应用中Streaming的输入源有多种，这里仍旧以wordCount为例，对socketStream进行介绍。">
+<meta name="twitter:image" content="http://yoursite.com/figures/spark-learning/receiveStream.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2015/03/26/Spark-Streaming学习笔记（四）/"/>
+
+
+
+
+
+  <title> Spark Streaming学习笔记（四） | FlyingMcdull </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">FlyingMcdull</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2015/03/26/Spark-Streaming学习笔记（四）/">
+
+  <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <meta itemprop="name" content="Mcdull">
+    <meta itemprop="description" content="">
+    <meta itemprop="image" content="/figures/mcdull.jpg">
+  </span>
+
+  <span style="display:none" itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+    <meta itemprop="name" content="FlyingMcdull">
+    <span style="display:none" itemprop="logo" itemscope itemtype="http://schema.org/ImageObject">
+      <img style="display:none;" itemprop="url image" alt="FlyingMcdull" src="">
+    </span>
+  </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Spark Streaming学习笔记（四）
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2015-03-26T17:01:44+08:00">
+                2015-03-26
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+              <span class="post-meta-divider">|</span>
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark-Streaming/" itemprop="url" rel="index">
+                    <span itemprop="name">Spark Streaming</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+
+          
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>上文讲到了wordCount示例程序运行时的启动流程，依旧停留在框架理解上。下面开始详细介绍一下Spark Streaming中是如何接收和存储流数据。实际应用中Streaming的输入源有多种，这里仍旧以wordCount为例，对socketStream进行介绍。<br><a id="more"></a></p>
+<h1 id="源码跟踪"><a href="#源码跟踪" class="headerlink" title="源码跟踪"></a>源码跟踪</h1><p>上文中StartReceivers中实例化了一个ReceiverSupervisorImpl对象，然后启动之。ReceiverSupervisorImpl继承自ReceiverSupervisor，实现了ReceiverSupervisor中处理接收数据的方法。这里executor.start()中的start方法是继承自ReceiverSupervisor，调用了onStart和startReceiver两个方法。继续看startReceiver方法：<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/** Start receiver */</span></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">startReceiver</span></span>(): <span class="type">Unit</span> = synchronized &#123;</div><div class="line">    <span class="keyword">try</span> &#123;</div><div class="line">      logInfo(<span class="string">"Starting receiver"</span>)</div><div class="line">      receiver.onStart()</div><div class="line">      logInfo(<span class="string">"Called receiver onStart"</span>)</div><div class="line">      onReceiverStart()</div><div class="line">      receiverState = <span class="type">Started</span></div><div class="line">    &#125; <span class="keyword">catch</span> &#123;</div><div class="line">      <span class="keyword">case</span> t: <span class="type">Throwable</span> =&gt;</div><div class="line">        stop(<span class="string">"Error starting receiver "</span> + streamId, <span class="type">Some</span>(t))</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>终于看到启动receiver的关键代码了，可是onStart和onReceiverStart方法其实是在ReceiverSupervisorImpl类中实现的，我们看看代码：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">override</span> <span class="keyword">protected</span> <span class="function"><span class="keyword">def</span> <span class="title">onStart</span></span>() &#123;</div><div class="line">    blockGenerator.start()<span class="comment">//blockGenerator是一个BlockGenerator对象，顾名思义就是数据块生成器</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">override</span> <span class="keyword">protected</span> <span class="function"><span class="keyword">def</span> <span class="title">onReceiverStart</span></span>() &#123;</div><div class="line">    <span class="keyword">val</span> msg = <span class="type">RegisterReceiver</span>(</div><div class="line">      streamId, receiver.getClass.getSimpleName, <span class="type">Utils</span>.localHostName(), actor)</div><div class="line">    <span class="keyword">val</span> future = trackerActor.ask(msg)(askTimeout)<span class="comment">//发送消息给trackerActor，通知receiver启动</span></div><div class="line">    <span class="type">Await</span>.result(future, askTimeout)</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>接着看BlockGenerator中的start方法：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/** Start block generating and pushing threads. */</span></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">start</span></span>() &#123;</div><div class="line">    blockIntervalTimer.start()<span class="comment">//启动blockInterval定时器</span></div><div class="line">    blockPushingThread.start()<span class="comment">//启动push block线程</span></div><div class="line">    logInfo(<span class="string">"Started BlockGenerator"</span>)</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>接下来，看看blockPushingThread乃何方神圣:</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span> <span class="keyword">val</span> blockPushingThread = <span class="keyword">new</span> <span class="type">Thread</span>() &#123; <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">run</span></span>() &#123; keepPushingBlocks() &#125; &#125;</div></pre></td></tr></table></figure>
+<p>调用了一个叫keepPushingBlocks的方法，继续往根上刨：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/** Keep pushing blocks to the BlockManager. */</span></div><div class="line"><span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">keepPushingBlocks</span></span>() &#123;</div><div class="line">    logInfo(<span class="string">"Started block pushing thread"</span>)</div><div class="line">    <span class="keyword">try</span> &#123;</div><div class="line">      <span class="keyword">while</span>(!stopped) &#123;<span class="comment">//不断将blocksForPushing中的block取出来push之</span></div><div class="line">        <span class="type">Option</span>(blocksForPushing.poll(<span class="number">100</span>, <span class="type">TimeUnit</span>.<span class="type">MILLISECONDS</span>)) <span class="keyword">match</span> &#123;</div><div class="line">          <span class="keyword">case</span> <span class="type">Some</span>(block) =&gt; pushBlock(block)<span class="comment">//调用pushBlock</span></div><div class="line">          <span class="keyword">case</span> <span class="type">None</span> =&gt;</div><div class="line">        &#125;</div><div class="line">      &#125;</div><div class="line">      <span class="comment">// Push out the blocks that are still left</span></div><div class="line">     ......</div><div class="line"> &#125;</div></pre></td></tr></table></figure>
+<p>接着看关键的pushBlock方法，pushBlock调用onPushBlock方法</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">onPushBlock</span></span>(blockId: <span class="type">StreamBlockId</span>, arrayBuffer: <span class="type">ArrayBuffer</span>[_])<span class="comment">//当有新数据块需要push便调用</span></div></pre></td></tr></table></figure>
+<p>这里并没有具体实现，具体实现其实在ReceiverSupervisorImpl中实例化BlockGenerator时：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">onPushBlock</span></span>(blockId: <span class="type">StreamBlockId</span>, arrayBuffer: <span class="type">ArrayBuffer</span>[_]) &#123;</div><div class="line">      pushArrayBuffer(arrayBuffer, <span class="type">None</span>, <span class="type">Some</span>(blockId))</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>由此，继续刨根问底，看pushArrayBuffer方法：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/** Store an ArrayBuffer of received data as a data block into Spark's memory. */</span></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">pushArrayBuffer</span></span>(</div><div class="line">      arrayBuffer: <span class="type">ArrayBuffer</span>[_],</div><div class="line">      optionalMetadata: <span class="type">Option</span>[<span class="type">Any</span>],</div><div class="line">      optionalBlockId: <span class="type">Option</span>[<span class="type">StreamBlockId</span>]</div><div class="line">    ) &#123;</div><div class="line">    <span class="keyword">val</span> blockId = optionalBlockId.getOrElse(nextBlockId)</div><div class="line">    <span class="keyword">val</span> time = <span class="type">System</span>.currentTimeMillis</div><div class="line">    blockManager.putArray(blockId, arrayBuffer.toArray[<span class="type">Any</span>], storageLevel, tellMaster = <span class="literal">true</span>)<span class="comment">//将block保存到blockManager中</span></div><div class="line">    logDebug(<span class="string">"Pushed block "</span> + blockId + <span class="string">" in "</span> + (<span class="type">System</span>.currentTimeMillis - time)  + <span class="string">" ms"</span>)</div><div class="line">    reportPushedBlock(blockId, arrayBuffer.size, optionalMetadata)<span class="comment">//向driver发送block的id，大小和元数据信息</span></div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>至此，流数据接收并存储起来，然后将block的id，大小和元数据信息发送给dirver以供调度时使用。</p>
+<h1 id="膜拜大神"><a href="#膜拜大神" class="headerlink" title="膜拜大神"></a>膜拜大神</h1><p>下图是大神<a href="http://www.cnblogs.com/hseagle/" target="_blank" rel="external">徽沪一郎</a> <a href="http://www.cnblogs.com/hseagle/p/3673139.html" target="_blank" rel="external">博客</a>中给出的一幅Spark Streaming接收数据示意图<br><img src="/figures/spark-learning/receiveStream.png" alt="receiveStream"><br>一目了然，膜拜一下~~~</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/源码/" rel="tag"># 源码</a>
+          
+            <a href="/tags/Spark-Streaming/" rel="tag"># Spark Streaming</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2015/03/25/Spark-Streaming学习笔记（三）/" rel="next" title="Spark Streaming学习笔记（三）">
+                <i class="fa fa-chevron-left"></i> Spark Streaming学习笔记（三）
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2015/03/30/Spark-Streaming学习笔记（五）/" rel="prev" title="Spark Streaming学习笔记（五）">
+                Spark Streaming学习笔记（五） <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/figures/mcdull.jpg"
+               alt="Mcdull" />
+          <p class="site-author-name" itemprop="name">Mcdull</p>
+          <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">40</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">9</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">19</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/wongxingjun" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/wongxingjun" target="_blank" title="Weibo">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                  Weibo
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://www.facebook.com/wongxingjun" target="_blank" title="Facebook">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Facebook
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://liupengs.github.io/" title="Liupeng's Blog" target="_blank">Liupeng's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#源码跟踪"><span class="nav-number">1.</span> <span class="nav-text">源码跟踪</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#膜拜大神"><span class="nav-number">2.</span> <span class="nav-text">膜拜大神</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Mcdull</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+</body>
+</html>

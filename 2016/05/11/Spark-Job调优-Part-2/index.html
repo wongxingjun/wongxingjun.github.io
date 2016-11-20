@@ -1,0 +1,786 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Spark,性能," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/figures/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="这篇文章将会完成Part 1中留下的部分，我会尽力介绍更多的你关心的能加速Spark程序的东西。特别是你将会学习资源调优或者配置Spark来充分利用集群提供的所有资源。然后我们会转向并行度调优">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark Job调优(Part 2)">
+<meta property="og:url" content="http://yoursite.com/2016/05/11/Spark-Job调优-Part-2/index.html">
+<meta property="og:site_name" content="FlyingMcdull">
+<meta property="og:description" content="这篇文章将会完成Part 1中留下的部分，我会尽力介绍更多的你关心的能加速Spark程序的东西。特别是你将会学习资源调优或者配置Spark来充分利用集群提供的所有资源。然后我们会转向并行度调优">
+<meta property="og:image" content="http://yoursite.com/figures/tune-spark-job-2/spark-tuning2-f1.png">
+<meta property="og:image" content="http://yoursite.com/figures/tune-spark-job-2/spark-tuning2-f2.png">
+<meta property="og:updated_time" content="2016-11-05T08:24:45.097Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Spark Job调优(Part 2)">
+<meta name="twitter:description" content="这篇文章将会完成Part 1中留下的部分，我会尽力介绍更多的你关心的能加速Spark程序的东西。特别是你将会学习资源调优或者配置Spark来充分利用集群提供的所有资源。然后我们会转向并行度调优">
+<meta name="twitter:image" content="http://yoursite.com/figures/tune-spark-job-2/spark-tuning2-f1.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2016/05/11/Spark-Job调优-Part-2/"/>
+
+
+
+
+
+  <title> Spark Job调优(Part 2) | FlyingMcdull </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">FlyingMcdull</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/05/11/Spark-Job调优-Part-2/">
+
+  <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <meta itemprop="name" content="Mcdull">
+    <meta itemprop="description" content="">
+    <meta itemprop="image" content="/figures/mcdull.jpg">
+  </span>
+
+  <span style="display:none" itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+    <meta itemprop="name" content="FlyingMcdull">
+    <span style="display:none" itemprop="logo" itemscope itemtype="http://schema.org/ImageObject">
+      <img style="display:none;" itemprop="url image" alt="FlyingMcdull" src="">
+    </span>
+  </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Spark Job调优(Part 2)
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2016-05-11T20:43:03+08:00">
+                2016-05-11
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+              <span class="post-meta-divider">|</span>
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark/" itemprop="url" rel="index">
+                    <span itemprop="name">Spark</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+
+          
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>这篇文章将会完成Part 1中留下的部分，我会尽力介绍更多的你关心的能加速Spark程序的东西。特别是你将会学习资源调优或者配置Spark来充分利用集群提供的所有资源。然后我们会转向并行度调优<a id="more"></a>，job性能中最难的也是最重要的参数。最后你会学习如何表示数据本身，Spark能读取的磁盘存储形式（用Apache Avro或者Apache Parquet）和视作缓存或者系统移动的内存存储形式。</p>
+<h1 id="资源分配调优"><a href="#资源分配调优" class="headerlink" title="资源分配调优"></a>资源分配调优</h1><p>Spark用户列表经常被这样一类问题困扰：“我有一个500节点的集群，但是当我跑我的应用的时候我只看到两个task同时执行”。如果指定了Spark资源占用的参数，这些问题就不是问题了，但在这一节中你将会学习如何榨干你的集群最后一点资源。以下的建议和配置在不同Spark集群管理器（YARN，Mesos和Standalone）上会有所不同，但是我们仅仅只关注在YARN上，也是Cloudera推荐的方式。</p>
+<p>要看一下Spark在YARN上跑的背景知识，可以去看这篇<a href="http://blog.cloudera.com/blog/2014/05/apache-spark-resource-management-and-yarn-app-models/" target="_blank" rel="external">博客</a></p>
+<p>在YARN上考虑的两个主要资源就是<em>CPU</em>和<em>内存</em>，磁盘和网络IO也会影响Spark性能，但是Spark和YARN目前都没有有效管理机制。</p>
+<p>一个应用中每个Spark executor都有相同的固定数目的core和固定的heap size。core数可以在命令行调用spark-submit，spark-shell或者pyspark时通过<em>–executor-memory</em>指定，或者在<em>spark-defaults.conf</em>文件中或者<em>SparkConf</em>对象中设置<em>spark.executor.cores</em>参数。类似地，heap size也可以通过<em>–executor-memory</em>或者<em>spark.executor.memory</em>来控制。<em>cores</em>属性控制了一个executor可以并发执行的task数量，<em>–executor-cores 5</em>意味着每个executor最多可以同时执行5个task。内存属性指明了Spark可以缓存的数据量，同时也是用来group，aggregate和join的shuffle数据结构大小。</p>
+<p><em>–num-executor</em>命令行参数或者<em>spark.executor.instances</em>配置属性可以控制请求的executor个数。从CDH 5.4/Spark 1.3开始，你可以通过设置<em>spark.dynamicAllocation.enabled</em>属性打开动态资源分配了禁用这一属性。动态分配可以让Spark应用在有挂起的task时请求executor，而没有task时释放executor。</p>
+<p>理解Spark资源请求如何映射到YARN中是很重要的，YARN相关属性是：</p>
+<ul>
+<li><strong>yarn.nodemanager.resource.memory-mb</strong></li>
+</ul>
+<p>控制每个节点上的container使用的最大内存</p>
+<ul>
+<li><strong>yarn.nodemanager.resource.cpu-vcores</strong></li>
+</ul>
+<p>控制每个节点上的container使用的最大core数目</p>
+<p>请求5个executor core就相当于向YARN请求5个virtual core，YARN的内存请求稍微有点负责，原因如下：</p>
+<ul>
+<li><strong>–executor-memory/spark.executor.memory</strong></li>
+</ul>
+<p>控制executor的heap size，但是JVM也能使用一些堆内存，比如字符串和直接字节的buffer缓存。<em>spark.yarn.executor.memoryOverhead</em>值被加到executor内存中用来决定每个executor使用的全部内存请求。默认是max(384, 0.07*spark.executor.memory)(注意，在Spark-1.6.1中0.07已经改成了0.1了，为了保证统一，后续也还是沿用0.07)</p>
+<ul>
+<li>YARN可能将请求的内存减小一点，YARN的<em>yarn.scheduler.minimum-allocation-mb</em>和<em>yarn.scheduler.increment-allocation-mb</em>属性分别控制最小值的和增量请求值。</li>
+</ul>
+<p>下图（并非按比例）表示了Spark和YARN中的内存属性层次关系：<br><img src="/figures/tune-spark-job-2/spark-tuning2-f1.png" alt="spark-tuning-job-2"></p>
+<p>如果这还不足以用来理解的话，还有一些在设置Spark executor时最后需要考虑的：</p>
+<ul>
+<li><p>application master是一个非executor的container，YARN中有一个特殊的请求机制，master必须使用它自己的资源预算。在<em>yarn-client</em>模式中，默认是1024 MB内存和1个vcore。在<em>yarn-cluster</em>模式中，master运行着driver，所以通常用<em>–driver-memory</em>和<em>–driver-cores</em>属性来设置比较有效。</p>
+</li>
+<li><p>给executor设置太多的内存经常会导致过大的GC（garbage collection，JVM的内存垃圾回收）延迟，单个executor的粗略内存上限是64GB。</p>
+</li>
+<li><p>我也注意到HDFS客户端经常受大量的并发线程所限制。每个executor上大概上限是5个task，这样就可以达到最大的write throughput，所以最好还是让每个executor上的core少于5。</p>
+</li>
+<li><p>运行小的executor（比如一个core，运行单个task的内存量）就不能利用JVM多线程执行多个task的优势。比如每个executor上需要将广播变量复制一次，那么很多小的executor就会有大量数据副本。</p>
+</li>
+</ul>
+<p>为描述得更加具体一点，这里举一个例子来配置Spark app充分利用集群：设想有一个集群有6个节点运行NodeManager，每个节点配置16核，64GB内存。NodeManager容量，<em>yarn.nodemanager.resource.memory-mb</em>和<em>yarn.nodemanager.resource.cpu-vcores</em>就分别应该被设置成63*1024=64512(MB)和15。我们要避免将100%资源分配给YARN container，因为节点还要一些资源来运行操作系统和Hadoop的一些守护进程。在这种情况下，预留1个core和1GB内存给这些进程。Cloudera管理器可以帮你考虑并自动配置这些YARN属性。</p>
+<p>冲动之下你很可能会使用<strong>–num-executor 6 –executor-core 15 –executor-memory 63G</strong>，然而这是一种错误的方法，原因如下：</p>
+<ul>
+<li>63GB容量的Nodemanager不能满足63GB以上的executor内存开销</li>
+<li>application master会占用一个core和一个节点，这意味着那个节点上就没有空间容纳一个15-core的executor了</li>
+<li>每个executor上15个core会导致严重的HDFS I/O吞吐</li>
+</ul>
+<p>一个更好的选择就是用<strong>–num-executor 17 –executor-core 5 –executor-memory 19G</strong>，原因如下：</p>
+<ul>
+<li>这种配置下除了有AM的节点有2个executor之外，每个节点上都有3个executor</li>
+<li><em>–executor-memory</em>计算方式是(每个节点上63/3个executor)=21，21*0.07=1.47（之前说了至少留7%的内存给系统），21-1.47=19</li>
+</ul>
+<h1 id="并行度调优"><a href="#并行度调优" class="headerlink" title="并行度调优"></a>并行度调优</h1><p>众多周知Spark是一个并行处理引擎，一个不是很明显的特点就是Spark并不是一个完美的并行处理引擎，它找出最优并行度的能力有限。每个Spark stage都有一定数量的task，每个task都并行处理数据。在Spark Job调优过程中，这个数字恐怕是唯一一个决定性能的最重要的参数了。</p>
+<p>那么这个数字是如何决定的呢？Spark如何划分RDD到stage中已经在上文述及。一个stage中的task数和对应哪个stage的最后一个RDD分区数相同。一个RDD的分区数和它所依赖的RDD分区数一样，除了<em>coalesce</em>转换可以允许创建比父RDD更少分区的RDD，还有<em>union</em>转换可以创建出父RDD们分区总数个分区的RDD，<em>cartesian</em>转换创建父RDD分区乘积个分区的RDD。</p>
+<p>那没有父RDD的RDD是怎么样的呢？通过<em>textFile</em>或者<em>hadoopFile</em>操作产生的RDD分区数取决于底层MapReduce使用的输入格式。一般每个读入的HDFS分区都会成为一个RDD分区。通过parallelize产生的RDD分区数取决于用户给的参数，或者缺省的默认<em>spark.default.parallelism</em></p>
+<p>你可以随时用<em>rdd.partitions().size()</em>来确定一个RDD的分区数</p>
+<p>主要应该关心的是task数量太少了。如果task数量比可用的slot数还少，那么这个stage就无法充分利用可用的CPU资源</p>
+<p>少量的task意味着每个task中的aggregation操作的内存压力更大。任何<em>join</em>，<em>cogroup</em>，或者<em>ByKey</em>操作都会持有hashmap对象或者内存buffer来分组或者排序。<em>join</em>，<em>cogroup</em>，和<em>groupByKey</em>都在他们触发的shuffle拉取数据的一端的stage中使用这些数据结构。<em>reduceByKey</em>和<em>aggreateByKey</em>在shuffle两端的stage中都使用这些数据结构。</p>
+<p>当内存容纳不下用来聚合操作的记录时，情况就会变得糟糕起来。首先，用这些数据结构保存大量的record会产生巨大的GC压力，这会导致执行暂停。第二，当内存不足以容纳record时，Spark会将records溢写到磁盘上，这样又会带来磁盘I/O和排序。这种在大规模shuffle中的开销是Cloudera用户中观察到job执行缓慢的最主要的因素。</p>
+<p>那么你增加分区数量呢？如果问题中的stage是从Hadoop中服的，那你的选择有：</p>
+<ul>
+<li>使用repartition转换，这会触发一次shuffle</li>
+<li>配置你的输入格式，创建更多的数据分块</li>
+<li>将HDFS输入数据写入块大小设置得小一些</li>
+</ul>
+<p>如果当前stage从其他stage处获得输入，那么触发stage边界的转换将会接受一个<em>numPartitions</em>参数，比如：<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">val</span> rdd2 = rdd1.reduceByKey(_ + _, numPartitions = <span class="type">X</span>)</div></pre></td></tr></table></figure></p>
+<p>那么X应该是多少呢？最简单直接的设置分区的办法就是试验：看一下父RDD的分区数，然后每次乘以1.5，直到性能停止增加为止。</p>
+<p>也有一种比较正规的计算X的方式，但是因为一些参量难以计算出来所以无法做一个先验决策。在这里提及这个方法并不是建议大家平常去用它，而是为了帮助理解一些细节。我们最主要的目的就是执行足够多的task并保证每个task的内存刚好可以容纳下对应的数据。</p>
+<p>每个task可用的memory是（spark.executor.memory<em>spark.shuffle.memoryFraction</em>spark.shuffle.safetyFraction）/spark.executor.cores。内存占比和安全占比默认分别是0.2和0.8</p>
+<p>内存中的shuffle数据大小很难确定。最方便的方式就是找出执行的stage中Shuffle Spill（Memory）和Shuffle Spill（Disk）之间的比例。然后将所有shuffle写数据量乘以这个比例。但是当stage在做一个reduction时就稍微有点复杂。<br><img src="/figures/tune-spark-job-2/spark-tuning2-f2.png" alt="spark-tuning-job-2"></p>
+<p>然后取一个约等于结果因为分区多一点通常比分区过少要好一些。</p>
+<p>事实上，当举棋不定时，一般多一些task（相应分区也多一点）要好一点。这个建议是相对于MapReduce的，MapReduce中需要你对task数设置保守一些。根本的差别在于MapReduce中task的启动开销较大但Spark则不然（这是因为MapReduce是用的多进程方式，每个进程执行一个task，Spark采用的多线程方式，每个executor持有一个线程池，每个线程可以执行一个task）。</p>
+<h1 id="轻量化你的数据结构"><a href="#轻量化你的数据结构" class="headerlink" title="轻量化你的数据结构"></a>轻量化你的数据结构</h1><p>数据是以record形式在Spark中流动的。一个record有两种表示方式：反序列化对象或者序列化二进制形式。通常来说Spark在内存中用序列化方式表示record，而在磁盘或者网络传输时用反序列化方式表示。已经有一些将内存中shuffle数据用序列化形式存储的计划工作了。</p>
+<p><em>spark.serializer</em>属性控制两种形式之间的序列化器。Kryo序列化器，<em>org.apache.spark.serializer.KryoSerializer</em>是首选项。但不幸的是它并不是默认采用的，因为Spark早期版本的Kryo的一些不稳定性并且不想破坏兼容性，但是大多时候应该用Kryo序列化器。</p>
+<p>你的record在这两种形式之间的转换过程对Spark性能有很大的影响。仔细查看传输的数据类型并找出可以给其减重的地方通常是值得的。</p>
+<p>过大的序列化对象会导致Spark经常将数据溢写到磁盘上，致使Spark可以缓存的反序列化对象数量减少（比如在MEMORY存储层）。Spark官方内存调优<a href="http://spark.apache.org/docs/latest/tuning.html#memory-tuning" target="_blank" rel="external">指南</a>对此有很好的描述。除此之外过大的序列化对象会导致更大的磁盘和网络I/O开销，这里主要的方式是确保注册任何你自定义的类然后用<em>Spark#registerKryoClassed</em> API来传递。</p>
+<h1 id="数据格式"><a href="#数据格式" class="headerlink" title="数据格式"></a>数据格式</h1><p>不管什么时候你需要决定如何在磁盘上存储你的数据，你都应该用一种可扩展的二进制格式，比如Avro，Parquat，Thrift或者Protobuf。选择其中一种并坚持使用之。说明一下，但谈及Hadoop上的Avro，Parquat，Thrift或者Protobuf的时候，都是指一个record在顺序文件中以Avro/Thrift/Protobuf结构存储。JSON文件不值得以这种方式存储。</p>
+<p>每次你考虑用JSON存储大量数据时，在你花费大量的CPU cycle反复解析JSON文件时想想中东那边即将开始的冲突，加拿大那边严重污染的河流或者美国中部植物上的放射性沉降物（意思就是能耗高了呗）。另外你应该学习人际交往能力然后说服你的同事和上司也这么做。</p>
+<h1 id="结束语"><a href="#结束语" class="headerlink" title="结束语"></a>结束语</h1><p>所有内容到此结束，我从博客中学习到了很多有用的Spark编程知识，对整个应用的执行也有了较为清晰的了解，当然在此之前也应该好好阅读以下官方的文档。</p>
+<h1 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h1><p>[1]<a href="http://blog.cloudera.com/blog/2015/03/how-to-tune-your-apache-spark-jobs-part-2/" target="_blank" rel="external">How-to: Tune Your Apache Spark Jobs (Part 2)</a></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Spark/" rel="tag"># Spark</a>
+          
+            <a href="/tags/性能/" rel="tag"># 性能</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/05/11/Spark-Job调优-Part-1/" rel="next" title="Spark Job调优(Part 1)">
+                <i class="fa fa-chevron-left"></i> Spark Job调优(Part 1)
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/05/26/Spark内存管理/" rel="prev" title="Spark内存管理">
+                Spark内存管理 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/figures/mcdull.jpg"
+               alt="Mcdull" />
+          <p class="site-author-name" itemprop="name">Mcdull</p>
+          <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">40</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">9</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">19</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/wongxingjun" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/wongxingjun" target="_blank" title="Weibo">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                  Weibo
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://www.facebook.com/wongxingjun" target="_blank" title="Facebook">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Facebook
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://liupengs.github.io/" title="Liupeng's Blog" target="_blank">Liupeng's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#资源分配调优"><span class="nav-number">1.</span> <span class="nav-text">资源分配调优</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#并行度调优"><span class="nav-number">2.</span> <span class="nav-text">并行度调优</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#轻量化你的数据结构"><span class="nav-number">3.</span> <span class="nav-text">轻量化你的数据结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#数据格式"><span class="nav-number">4.</span> <span class="nav-text">数据格式</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#结束语"><span class="nav-number">5.</span> <span class="nav-text">结束语</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#参考文献"><span class="nav-number">6.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Mcdull</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+</body>
+</html>
