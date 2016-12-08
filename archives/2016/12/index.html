@@ -68,7 +68,7 @@
 <link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
 
 
-  <meta name="keywords" content="Spark,源码," />
+  <meta name="keywords" content="Hexo, NexT" />
 
 
 
@@ -84,16 +84,12 @@
 
 
 
-<meta name="description" content="Spark-1.6以后RPC方式较之前有改动，大致就是默认使用了netty替代akka，在netty上加了一层封装，为实现对Spark的定制开发，必须对RPC实现方式有比较清晰的了解，本文记录Spark RPC实现。">
-<meta property="og:type" content="article">
-<meta property="og:title" content="Spark RPC解读">
-<meta property="og:url" content="http://yoursite.com/2016/11/13/Spark-RPC解读/index.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="FlyingMcdull">
+<meta property="og:url" content="http://yoursite.com/archives/2016/12/index.html">
 <meta property="og:site_name" content="FlyingMcdull">
-<meta property="og:description" content="Spark-1.6以后RPC方式较之前有改动，大致就是默认使用了netty替代akka，在netty上加了一层封装，为实现对Spark的定制开发，必须对RPC实现方式有比较清晰的了解，本文记录Spark RPC实现。">
-<meta property="og:updated_time" content="2016-11-14T11:02:31.502Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Spark RPC解读">
-<meta name="twitter:description" content="Spark-1.6以后RPC方式较之前有改动，大致就是默认使用了netty替代akka，在netty上加了一层封装，为实现对Spark的定制开发，必须对RPC实现方式有比较清晰的了解，本文记录Spark RPC实现。">
+<meta name="twitter:title" content="FlyingMcdull">
 
 
 
@@ -121,13 +117,13 @@
 
 
 
-  <link rel="canonical" href="http://yoursite.com/2016/11/13/Spark-RPC解读/"/>
+  <link rel="canonical" href="http://yoursite.com/archives/2016/12/"/>
 
 
 
 
 
-  <title> Spark RPC解读 | FlyingMcdull </title>
+  <title> 归档 | FlyingMcdull </title>
 </head>
 
 <body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
@@ -148,7 +144,7 @@
     
   
 
-  <div class="container one-collumn sidebar-position-left page-post-detail ">
+  <div class="container one-collumn sidebar-position-left  page-archive  ">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
@@ -248,167 +244,65 @@
           <div id="content" class="content">
             
 
-  <div id="posts" class="posts-expand">
-    
+  <section id="posts" class="posts-collapse">
+    <span class="archive-move-on"></span>
 
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/11/13/Spark-RPC解读/">
-
-  <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
-    <meta itemprop="name" content="Mcdull">
-    <meta itemprop="description" content="">
-    <meta itemprop="image" content="/figures/mcdull.jpg">
-  </span>
-
-  <span style="display:none" itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-    <meta itemprop="name" content="FlyingMcdull">
-    <span style="display:none" itemprop="logo" itemscope itemtype="http://schema.org/ImageObject">
-      <img style="display:none;" itemprop="url image" alt="FlyingMcdull" src="">
+    <span class="archive-page-counter">
+      
+      
+       
+      
+      OK! 目前共计 40 篇日志。 继续努力。
     </span>
-  </span>
 
     
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-            
-            
-              
-                Spark RPC解读
-              
-            
-          </h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              <time title="Post created" itemprop="dateCreated datePublished" datetime="2016-11-13T21:08:59+08:00">
-                2016-11-13
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-              <span class="post-meta-divider">|</span>
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Spark/" itemprop="url" rel="index">
-                    <span itemprop="name">Spark</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-
-          
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-
-    <div class="post-body" itemprop="articleBody">
 
       
       
-
       
-        <p>Spark-1.6以后RPC方式较之前有改动，大致就是默认使用了netty替代akka，在netty上加了一层封装，为实现对Spark的定制开发，必须对RPC实现方式有比较清晰的了解，本文记录Spark RPC实现。<br><a id="more"></a></p>
 
-      
-    </div>
-
-    <div>
       
         
-
-      
-    </div>
-
-    <div>
-      
-        
-
-      
-    </div>
-
-
-    <footer class="post-footer">
-      
-        <div class="post-tags">
-          
-            <a href="/tags/Spark/" rel="tag"># Spark</a>
-          
-            <a href="/tags/源码/" rel="tag"># 源码</a>
-          
+        <div class="collection-title">
+          <h2 class="archive-year motion-element" id="archive-year-2016">2016</h2>
         </div>
       
-
-      
-        <div class="post-nav">
-          <div class="post-nav-next post-nav-item">
-            
-              <a href="/2016/11/07/Spark-on-YARN配置日志Web-UI/" rel="next" title="Spark on YARN配置日志Web UI">
-                <i class="fa fa-chevron-left"></i> Spark on YARN配置日志Web UI
-              </a>
-            
-          </div>
-
-          <span class="post-nav-divider"></span>
-
-          <div class="post-nav-prev post-nav-item">
-            
-          </div>
-        </div>
       
 
       
-      
-    </footer>
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+    <header class="post-header">
+
+      <h1 class="post-title">
+        
+            <a class="post-title-link" href="/2016/12/08/Spark-RPC解读/" itemprop="url">
+              
+                <span itemprop="name">Spark RPC解读</span>
+              
+            </a>
+        
+      </h1>
+
+      <div class="post-meta">
+        <time class="post-time" itemprop="dateCreated"
+              datetime="2016-12-08T10:29:59+08:00"
+              content="2016-12-08" >
+          12-08
+        </time>
+      </div>
+
+    </header>
   </article>
 
 
 
-    <div class="post-spread">
-      
-    </div>
-  </div>
+    
+
+  </section>
+
+  
+
 
 
           </div>
@@ -416,10 +310,6 @@
 
 
           
-  <div class="comments" id="comments">
-    
-  </div>
-
 
         </div>
         
@@ -531,6 +421,10 @@
                   <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
                 </li>
               
+                <li class="links-of-blogroll-item">
+                  <a href="http://oserror.com/" title="Charles's Blog" target="_blank">Charles's Blog</a>
+                </li>
+              
             </ul>
           </div>
         
@@ -638,9 +532,11 @@
   
 
   
-  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
-<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
-
+  
+    <script type="text/javascript" id="motion.page.archive">
+      $('.archive-year').velocity('transition.slideLeftIn');
+    </script>
+  
 
 
   

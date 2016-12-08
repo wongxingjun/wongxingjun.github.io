@@ -95,7 +95,7 @@
 <meta property="og:image" content="http://yoursite.com/figures/spark-architecture-shuffle/spark_hash_shuffle_with_consolidation.png">
 <meta property="og:image" content="http://yoursite.com/figures/spark-architecture-shuffle/spark_sort_shuffle.png">
 <meta property="og:image" content="http://yoursite.com/figures/spark-architecture-shuffle/spark_tungsten_sort_shuffle.png">
-<meta property="og:updated_time" content="2016-11-05T08:24:45.193Z">
+<meta property="og:updated_time" content="2016-12-01T03:56:50.743Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Spark架构之shuffle">
 <meta name="twitter:description" content="本文针对Spark设计中shuffle部分进行详细介绍，是一篇大牛博客的译文，翻译外文博客只是为了记录自己阅读过程并存档方便随时回顾。">
@@ -388,7 +388,7 @@
 <h1 id="Sort-Shuffle"><a href="#Sort-Shuffle" class="headerlink" title="Sort Shuffle"></a>Sort Shuffle</h1><p>从Spark-1.2.0开始，sort shuffle被作为默认的shuffle算法（通过spark.shuffle.manager=sort开启）。大体上讲其实是尝试实现Hadoop MapReduce所使用的shuffle逻辑。hash shuffle中为每个reducer输出一个独立的文件，但sort shuffle中就更智能一点：每个输出的独立文件都根据reducer的id排序并索引，这样就可以通过获取相关数据块在文件中的位置信息，在读取之前做一个简单的fseek，很容易就可以拉取和reducer X相关联的数据块了。但显然reducer数较少时hash方式比sort方式要快，因此sort shuffle有一个退化机制：当reducer数少于<em>spark.shuffle.sort.bypassMergeThreshold</em>（默认200）时，就用将数据hash进多个独立文件然后将之合并到一个独立文件中，这一部分逻辑在一个独立类<a href="https://github.com/apache/spark/blob/master/core/src/main/java/org/apache/spark/shuffle/sort/BypassMergeSortShuffleWriter.java" target="_blank" rel="external">BypassMergeSortShufflerWriter</a>中实现。</p>
 <p>sort shuffle一个有意思的地方就是它在map端对数据排序，但是在reduce端不合并排序结果—除非需要对数据排序才会对数据进行重排序。Clouderea有这方面的<a href="http://blog.cloudera.com/blog/2015/01/improving-sort-performance-in-apache-spark-its-a-double/" target="_blank" rel="external">经验</a>。他们开始实现对mapper输出先排序然后在reduce端合并，而不是重排序。你可能知道在Spark的reduce端排序是用<a href="https://en.wikipedia.org/wiki/Timsort" target="_blank" rel="external">TimSort</a>，这是一个十分优异的排序算法，它利用了预先排序的输入。</p>
 <p>但是当内存不足以存储map输出怎么办呢？这时候你可能需要将临时数据溢写到磁盘上，<em>spark.shuffle.spill</em>参数决定是否溢写，默认是开启的。如果你禁止了并且没有足够内存存储map输出，你就会收到OOM错误。</p>
-<p>用来在溢写到磁盘之前存储map输出的内存大小为<strong>JVM Heap Size*spark.shuffle.memoryFraction*spark.shuffle.safetyFraction</strong>，默认是<strong>JVM Heap Size*0.2*0.8 = JVM Heap Size*0.16</strong>。你要知道如果你在同一个executor中跑很多线程（将spark.executor.cores/spark.task.cpus设置大于1），那么每个task存储map输出的内存大小就是<strong>JVM Heap Size*spark.shuffle.memoryFraction*spark.shuffle.safetyFraction/spark.executor.cores*spark.task.cpus</strong>， 其他选项默认的话，2个core就有<strong>0.08*JVM Heap Size</strong>。</p>
+<p>用来在溢写到磁盘之前存储map输出的内存大小为<strong>JVM Heap Size*spark.shuffle.memoryFraction*spark.shuffle.safetyFraction</strong>，默认是<strong>JVM Heap Size*0.2*0.8 = JVM Heap Size*0.16</strong>。你要知道如果你在同一个executor中跑很多线程（将spark.executor.cores/spark.task.cpus设置大于1），那么每个task存储map输出的内存大小就是<strong>JVM Heap Size * spark.shuffle.memoryFraction * spark.shuffle.safetyFraction/spark.executor.cores * spark.task.cpus</strong>， 其他选项默认的话，2个core就有<strong>0.08 * JVM Heap Size</strong>。</p>
 <p>Spark内部用<a href="https://github.com/apache/spark/blob/branch-1.5/core/src/main/scala/org/apache/spark/util/collection/AppendOnlyMap.scala" target="_blank" rel="external">AppendOnlyMap</a>结构来在内存中存储map输出。有趣的是，Spark用自己的Scala实现hash table- 用<a href="http://en.wikipedia.org/wiki/Quadratic_probing" target="_blank" rel="external">quadratic probing</a>hash并存储相同数组的key和value。采用了Google Guava库中的murmur3_32作为hash函数。</p>
 <p>hash table允许Spark直接在table上应用combiner逻辑- 每个已有的key新加入的value都用已有的value来进行combine。combine的输出结果存为一个新的value。</p>
 <p>当发生溢写的时候，会在存储在当前的ApppendOnlyMap中的数据上调用排序器对其进行TimSort，然后数据被写到磁盘上。</p>
@@ -631,6 +631,10 @@
               
                 <li class="links-of-blogroll-item">
                   <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://oserror.com/" title="Charles's Blog" target="_blank">Charles's Blog</a>
                 </li>
               
             </ul>

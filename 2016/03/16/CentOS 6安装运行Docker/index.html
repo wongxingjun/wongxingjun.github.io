@@ -91,7 +91,7 @@
 <meta property="og:site_name" content="FlyingMcdull">
 <meta property="og:description" content="最近需要用到Docker，奈何服务器上全是安装的CentOS6系统，Docker官方推荐的CentOS版本是7，但是很多旧机器依旧是5或者6系列，本文介绍如何在不进行系统升级的情况下在CentOS6中安装并运行Docker">
 <meta property="og:image" content="http://yoursite.com/figures/install-docker-on-centos/dockerlog.png">
-<meta property="og:updated_time" content="2016-11-05T08:24:44.276Z">
+<meta property="og:updated_time" content="2016-11-28T08:13:12.583Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="CentOS 6安装运行Docker">
 <meta name="twitter:description" content="最近需要用到Docker，奈何服务器上全是安装的CentOS6系统，Docker官方推荐的CentOS版本是7，但是很多旧机器依旧是5或者6系列，本文介绍如何在不进行系统升级的情况下在CentOS6中安装并运行Docker">
@@ -359,7 +359,7 @@
 <h1 id="安装Docker"><a href="#安装Docker" class="headerlink" title="安装Docker"></a>安装Docker</h1><p>重启进入新内核后开始安装Docker，按照官方给出的在CentOS下安装说明<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">sudo tee /etc/yum.repos.d/docker.repo &lt;&lt;-&apos;EOF&apos;</div><div class="line">[dockerrepo]</div><div class="line">name=Docker Repository</div><div class="line">baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/</div><div class="line">enabled=1</div><div class="line">gpgcheck=1</div><div class="line">gpgkey=https://yum.dockerproject.org/gpg</div><div class="line">EOF</div></pre></td></tr></table></figure></p>
 <p>这里有个坑说明一下，就是在RedHat下安装，这里的<em>$releasever</em>要改成对应的版本号，比如6，不然就会定向到错误的源，然后安装Docker<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">yum install docker-engine</div><div class="line">service docker start</div></pre></td></tr></table></figure></p>
 <p>然后进行运行测试，安装中遇到一个问题，这里记录一下。docker service启动之后，不能使用，说什么<em>docker dead but pid file exists
-</em>，没办法就只能看日志了<br><img src="/figures/install-docker-on-centos/dockerlog.png" alt="dockerlog"><br>结果发现应该是和libmapper有关，这是CentOS下docker运行的备库，所以安装升级一下<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">yum install device-mapper-event-libs device-mapper device-mapper-event device-mapper-libs</div></pre></td></tr></table></figure></p>
+</em>，没办法就只能看日志了<br><img src="/figures/install-docker-on-centos/dockerlog.png" alt="dockerlog"><br>结果发现应该是和libmapper有关，这是CentOS下docker运行必须的依赖库，所以需要安装升级一下<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">yum install device-mapper-event-libs device-mapper device-mapper-event device-mapper-libs</div></pre></td></tr></table></figure></p>
 <p>然后重启docker即可</p>
 <h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>小记一笔流水账，后续将会介绍Docker的原理。</p>
 
@@ -554,6 +554,10 @@
               
                 <li class="links-of-blogroll-item">
                   <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://oserror.com/" title="Charles's Blog" target="_blank">Charles's Blog</a>
                 </li>
               
             </ul>
