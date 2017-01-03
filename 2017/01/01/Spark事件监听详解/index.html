@@ -1,0 +1,725 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Spark，源码," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/figures/mcdull.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="Spark中很多组件之间是靠事件触发的，之前分析了一下Spark中RPC机制，其实二者之间存在异曲同工之处，其目的都是实现组件之间的通信，而事件则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，在driver端的组件之间进行通信。本文就举例来解释一下Spark中事件监听是如何实现的。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark事件监听详解">
+<meta property="og:url" content="http://yoursite.com/2017/01/01/Spark事件监听详解/index.html">
+<meta property="og:site_name" content="FlyingMcdull">
+<meta property="og:description" content="Spark中很多组件之间是靠事件触发的，之前分析了一下Spark中RPC机制，其实二者之间存在异曲同工之处，其目的都是实现组件之间的通信，而事件则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，在driver端的组件之间进行通信。本文就举例来解释一下Spark中事件监听是如何实现的。">
+<meta property="og:image" content="http://yoursite.com/figures/spark-event-listener/observerPattern.jpg">
+<meta property="og:updated_time" content="2017-01-03T03:11:31.454Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Spark事件监听详解">
+<meta name="twitter:description" content="Spark中很多组件之间是靠事件触发的，之前分析了一下Spark中RPC机制，其实二者之间存在异曲同工之处，其目的都是实现组件之间的通信，而事件则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，在driver端的组件之间进行通信。本文就举例来解释一下Spark中事件监听是如何实现的。">
+<meta name="twitter:image" content="http://yoursite.com/figures/spark-event-listener/observerPattern.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/01/01/Spark事件监听详解/"/>
+
+
+
+
+
+  <title> Spark事件监听详解 | FlyingMcdull </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">FlyingMcdull</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/01/01/Spark事件监听详解/">
+
+  <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <meta itemprop="name" content="Mcdull">
+    <meta itemprop="description" content="">
+    <meta itemprop="image" content="/figures/mcdull.jpg">
+  </span>
+
+  <span style="display:none" itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+    <meta itemprop="name" content="FlyingMcdull">
+    <span style="display:none" itemprop="logo" itemscope itemtype="http://schema.org/ImageObject">
+      <img style="display:none;" itemprop="url image" alt="FlyingMcdull" src="">
+    </span>
+  </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Spark事件监听详解
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-01-01T19:47:55+08:00">
+                2017-01-01
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+              <span class="post-meta-divider">|</span>
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark/" itemprop="url" rel="index">
+                    <span itemprop="name">Spark</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+
+          
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>Spark中很多组件之间是靠事件触发的，之前分析了一下Spark中RPC机制，其实二者之间存在异曲同工之处，其目的都是实现组件之间的通信，而事件则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，在driver端的组件之间进行通信。本文就举例来解释一下Spark中事件监听是如何实现的。<br><a id="more"></a></p>
+<h1 id="观察者模式和监听器"><a href="#观察者模式和监听器" class="headerlink" title="观察者模式和监听器"></a>观察者模式和监听器</h1><p>在设计模式中有一个观察者模式，该模式建立一种对象与对象之间的依赖关系，一个对象状态发生改变时立即通知其他对象，其他对象就据此作出相应的反应。其中发生改变的对象称之为观察目标（也有叫主题的），被通知的对象称之为观察者，可以有多个观察者注册到一个观察目标中，这些观察者之间没有联系，其数量可以根据需要增减。<br><img src="/figures/spark-event-listener/observerPattern.jpg" alt="observer-design-pattern"></p>
+<h1 id="Spark中的事件监听"><a href="#Spark中的事件监听" class="headerlink" title="Spark中的事件监听"></a>Spark中的事件监听</h1><h2 id="SparkListener"><a href="#SparkListener" class="headerlink" title="SparkListener"></a>SparkListener</h2><p>Spark中的事件监听机制，本质上其实就是观察者模式的实现，查看源码我们可以经常看到<em>*</em>listener这种命名的类或对象，顾名思义，这就是监听器类或对象。下面就以SparkListener为例来解析事件监听是如何设计的。首先我们看SparkListener<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">SparkListener</span> <span class="keyword">extends</span> <span class="title">SparkListenerInterface</span> </span>&#123;</div><div class="line">  <span class="comment">//很多方法代码省略</span></div><div class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">onExecutorAdded</span></span>(executorAdded: <span class="type">SparkListenerExecutorAdded</span>): <span class="type">Unit</span> = &#123; &#125;</div><div class="line"></div><div class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">onExecutorRemoved</span></span>(executorRemoved: <span class="type">SparkListenerExecutorRemoved</span>): <span class="type">Unit</span> = &#123; &#125;</div><div class="line">  <span class="comment">//很多方法代码省略</span></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>为了简化分析，我们以executor的增删事件监听来做具体的分析。这里我们可以看到onExecutorAdded和onExecutorRemoved两个方法，很明显这是用来处理executor增删事件的方法。SparkListener继承自SparkListenerInterface接口，其内部就是这些方法的声明，代码省略。</p>
+<h2 id="监听器的结构"><a href="#监听器的结构" class="headerlink" title="监听器的结构"></a>监听器的结构</h2><p>很明显，要使得类的对象能够实现对executor事件的响应，就必须继承SparkListener类。举例来讲，我们可以看到SaveExecutorInfo类（org.apache.spark.deploy.SaveExecutorInfo），是继承自SparkListener类的。<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span>[spark] <span class="class"><span class="keyword">class</span> <span class="title">SaveExecutorInfo</span> <span class="keyword">extends</span> <span class="title">SparkListener</span> </span>&#123;</div><div class="line">  <span class="keyword">val</span> addedExecutorInfos = mutable.<span class="type">Map</span>[<span class="type">String</span>, <span class="type">ExecutorInfo</span>]()</div><div class="line"></div><div class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">onExecutorAdded</span></span>(executor: <span class="type">SparkListenerExecutorAdded</span>) &#123;</div><div class="line">    addedExecutorInfos(executor.executorId) = executor.executorInfo</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>其声明中重载了onExecutorAdded方法，搜集executor的信息。</p>
+<h2 id="监听器如何使用"><a href="#监听器如何使用" class="headerlink" title="监听器如何使用"></a>监听器如何使用</h2><p>看了上面的分析，问题来了，SaveExecutorInfo是如何能够简单地通过继承自一个SparkListener类，甚至后者没有任何消息接受和处理逻辑，来实现事件响应呢？还是举例说明，我们可以看一下如何使用SaveExecutorInfo对象的。<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">LogUrlsStandaloneSuite</span> <span class="keyword">extends</span> <span class="title">SparkFunSuite</span> <span class="keyword">with</span> <span class="title">LocalSparkContext</span> </span>&#123;</div><div class="line">    <span class="comment">//部分代码省略</span></div><div class="line">    <span class="keyword">val</span> listener = <span class="keyword">new</span> <span class="type">SaveExecutorInfo</span></div><div class="line">    sc.addSparkListener(listener) <span class="comment">//将一个SaveExecutorInfo监听器对象添加到sc中</span></div><div class="line"></div><div class="line">    <span class="comment">// Trigger a job so that executors get added</span></div><div class="line">    sc.parallelize(<span class="number">1</span> to <span class="number">100</span>, <span class="number">4</span>).map(_.toString).count()</div><div class="line"></div><div class="line">    sc.listenerBus.waitUntilEmpty(<span class="type">WAIT_TIMEOUT_MILLIS</span>)</div><div class="line">    listener.addedExecutorInfos.values.foreach &#123; info =&gt;</div><div class="line">      assert(info.logUrlMap.nonEmpty)</div><div class="line">      <span class="comment">// Browse to each URL to check that it's valid</span></div><div class="line">      info.logUrlMap.foreach &#123; <span class="keyword">case</span> (logType, logUrl) =&gt;</div><div class="line">        <span class="keyword">val</span> html = <span class="type">Source</span>.fromURL(logUrl).mkString</div><div class="line">        assert(html.contains(<span class="string">s"<span class="subst">$logType</span> log page"</span>))</div><div class="line">      &#125;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">//部分代码省略</span></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<h2 id="监听器是如何工作的"><a href="#监听器是如何工作的" class="headerlink" title="监听器是如何工作的"></a>监听器是如何工作的</h2><p>这里可以看到，在声明了一个SaveExecutorInfo对象之后，需要将它添加到sc中，sc其实就是SparkContext对象，也就是一个Spark application唯一的入口。SparkContext中addSparkListener方法的代码如下：<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * :: DeveloperApi ::</div><div class="line"> * Register a listener to receive up-calls from events that happen during execution.</div><div class="line"> */</div><div class="line"><span class="meta">@DeveloperApi</span></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">addSparkListener</span></span>(listener: <span class="type">SparkListenerInterface</span>) &#123;</div><div class="line">  listenerBus.addListener(listener)</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p> 这里的listenerBus，是一个监听器总线对象，其声明如下：<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span>[spark] <span class="keyword">val</span> listenerBus = <span class="keyword">new</span> <span class="type">LiveListenerBus</span></div></pre></td></tr></table></figure></p>
+<p>现在思路就变得很清晰了，SaveExecutorInfo对象是注册到LiveListenerBus对象中，然后通过LiveListenerBus对象来实现事件监听，其实这里我们通过取名就可以知道其设计思路，类似于计算机中的总线，设备都通过总线来传递消息，而LiveListenerBus就刚好充当了总线的角色，一个个SparkListener子类对象就是一个个的设备，它们可以接受来自总线的消息并作出相应的处理。</p>
+<h2 id="监听器总线如何传递消息"><a href="#监听器总线如何传递消息" class="headerlink" title="监听器总线如何传递消息"></a>监听器总线如何传递消息</h2><p>我们可以看一下LiveListenerBus类，该类实现了SparkListenerBus接口，直接看其入口start方法：<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">start</span></span>(sc: <span class="type">SparkContext</span>): <span class="type">Unit</span> = &#123;</div><div class="line">  <span class="keyword">if</span> (started.compareAndSet(<span class="literal">false</span>, <span class="literal">true</span>)) &#123;</div><div class="line">    sparkContext = sc</div><div class="line">    listenerThread.start()</div><div class="line">  &#125; <span class="keyword">else</span> &#123;</div><div class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="type">IllegalStateException</span>(<span class="string">s"<span class="subst">$name</span> already started!"</span>)</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>直接启动了一个listenerThread：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div></pre></td><td class="code"><pre><div class="line">private val listenerThread = new Thread(name) &#123;</div><div class="line">  setDaemon(true)</div><div class="line">  override def run(): Unit = Utils.tryOrStopSparkContext(sparkContext) &#123;</div><div class="line">    LiveListenerBus.withinListenerThread.withValue(true) &#123;</div><div class="line">      while (true) &#123;</div><div class="line">        eventLock.acquire()</div><div class="line">        self.synchronized &#123;</div><div class="line">          processingEvent = true</div><div class="line">        &#125;</div><div class="line">        try &#123;</div><div class="line">          val event = eventQueue.poll</div><div class="line">          if (event == null) &#123;</div><div class="line">            // Get out of the while loop and shutdown the daemon thread</div><div class="line">            if (!stopped.get) &#123;</div><div class="line">              throw new IllegalStateException(&quot;Polling `null` from eventQueue means&quot; +</div><div class="line">                &quot; the listener bus has been stopped. So `stopped` must be true&quot;)</div><div class="line">            &#125;</div><div class="line">            return</div><div class="line">          &#125;</div><div class="line">          postToAll(event)//将事件通知到所有注册的listener中</div><div class="line">        &#125; finally &#123;</div><div class="line">          self.synchronized &#123;</div><div class="line">            processingEvent = false</div><div class="line">          &#125;</div><div class="line">        &#125;</div><div class="line">      &#125;</div><div class="line">    &#125;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>可以看到这个listenerThread是一个守护线程，其核心逻辑就是不停地在一个事件队列eventQueue里取出事件，如果事件合法且LiverListenerBus没有关停，就将事件通知给所有注册的listener中，postToAll方法在ListenerBus接口中实现：<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">final</span> <span class="function"><span class="keyword">def</span> <span class="title">postToAll</span></span>(event: <span class="type">E</span>): <span class="type">Unit</span> = &#123;</div><div class="line">  <span class="comment">// JavaConverters can create a JIterableWrapper if we use asScala.</span></div><div class="line">  <span class="comment">// However, this method will be called frequently. To avoid the wrapper cost, here we use</span></div><div class="line">  <span class="comment">// Java Iterator directly.</span></div><div class="line">  <span class="keyword">val</span> iter = listeners.iterator</div><div class="line">  <span class="keyword">while</span> (iter.hasNext) &#123;</div><div class="line">    <span class="keyword">val</span> listener = iter.next()</div><div class="line">    <span class="keyword">try</span> &#123;</div><div class="line">      doPostEvent(listener, event)</div><div class="line">    &#125; <span class="keyword">catch</span> &#123;</div><div class="line">      <span class="keyword">case</span> <span class="type">NonFatal</span>(e) =&gt;</div><div class="line">        logError(<span class="string">s"Listener <span class="subst">$&#123;Utils.getFormattedClassName(listener)&#125;</span> threw an exception"</span>, e)</div><div class="line">    &#125;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>思路很清晰，就是用迭代器遍历listener，逐个将消息发送。而doPostEvent方法是一个抽象方法，其具体实现要由继承自ListerBus的类负责，比如之前举例中的SparkListener，就有相应的SparkListenerBus接口：<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span>[spark] <span class="class"><span class="keyword">trait</span> <span class="title">SparkListenerBus</span></span></div><div class="line">  <span class="keyword">extends</span> <span class="type">ListenerBus</span>[<span class="type">SparkListenerInterface</span>, <span class="type">SparkListenerEvent</span>] &#123;</div><div class="line"></div><div class="line">  <span class="keyword">protected</span> <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">doPostEvent</span></span>(</div><div class="line">      listener: <span class="type">SparkListenerInterface</span>,</div><div class="line">      event: <span class="type">SparkListenerEvent</span>): <span class="type">Unit</span> = &#123;</div><div class="line">    event <span class="keyword">match</span> &#123;</div><div class="line">    	<span class="comment">//部分代码省略</span></div><div class="line">      <span class="keyword">case</span> executorAdded: <span class="type">SparkListenerExecutorAdded</span> =&gt;</div><div class="line">        listener.onExecutorAdded(executorAdded)</div><div class="line">      <span class="keyword">case</span> executorRemoved: <span class="type">SparkListenerExecutorRemoved</span> =&gt;</div><div class="line">        listener.onExecutorRemoved(executorRemoved)</div><div class="line">        <span class="comment">//部分代码省略</span></div><div class="line">      <span class="keyword">case</span> _ =&gt; listener.onOtherEvent(event)</div><div class="line">    &#125;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>这里对每个事件进行类型匹配，比如doPostEvent需要将executorAdded事件告知一个listener，对应地，这个listener就调用一下自己的onExecutorAdded方法，对该事件作出自己的反应，比如前面的SaveExecutorInfo就实现了onExecutorAdded方法，其内容就是保存一下executor的信息。到这里其实还有一个重要的问题被忽视，LiveListenerBus发给注册在它这里的listener的事件消息是从何而来的？细心一点就可以发现，LiveListenerBus中有一个post方法:<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">post</span></span>(event: <span class="type">SparkListenerEvent</span>): <span class="type">Unit</span> = &#123;</div><div class="line">  <span class="keyword">if</span> (stopped.get) &#123;</div><div class="line">    <span class="comment">// Drop further events to make `listenerThread` exit ASAP</span></div><div class="line">    logError(<span class="string">s"<span class="subst">$name</span> has already stopped! Dropping event <span class="subst">$event</span>"</span>)</div><div class="line">    <span class="keyword">return</span></div><div class="line">  &#125;</div><div class="line">  <span class="keyword">val</span> eventAdded = eventQueue.offer(event)</div><div class="line">  <span class="keyword">if</span> (eventAdded) &#123;</div><div class="line">    eventLock.release()</div><div class="line">  &#125; <span class="keyword">else</span> &#123;</div><div class="line">    onDropEvent(event)</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>其核心就是向事件队列里添加相应的事件。</p>
+<h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>总结之，Spark中监听器的实现其实就是一个个需要对事件响应的监听器对象，注册到一个监听器总线，需要发送事件消息的组件将发生的事件消息提交到总线，然后总线将事件消息转发给一个个注册在它上面的监听器，最后监听器对事件进行响应。其实就是一个典型的观察者模式使用。</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Spark，源码/" rel="tag"># Spark，源码</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/12/19/使用Docker-Remote-API操作远程主机上的Docker容器/" rel="next" title="Docker Remote API使用">
+                <i class="fa fa-chevron-left"></i> Docker Remote API使用
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/figures/mcdull.jpg"
+               alt="Mcdull" />
+          <p class="site-author-name" itemprop="name">Mcdull</p>
+          <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">42</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">9</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">20</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/wongxingjun" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/wongxingjun" target="_blank" title="Weibo">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                  Weibo
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://www.facebook.com/wongxingjun" target="_blank" title="Facebook">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Facebook
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://liupengs.github.io/" title="Liupeng's Blog" target="_blank">Liupeng's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.fooler.cn/" title="Seafooler's Blog" target="_blank">Seafooler's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://oserror.com/" title="Charles's Blog" target="_blank">Charles's Blog</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#观察者模式和监听器"><span class="nav-number">1.</span> <span class="nav-text">观察者模式和监听器</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Spark中的事件监听"><span class="nav-number">2.</span> <span class="nav-text">Spark中的事件监听</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#SparkListener"><span class="nav-number">2.1.</span> <span class="nav-text">SparkListener</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#监听器的结构"><span class="nav-number">2.2.</span> <span class="nav-text">监听器的结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#监听器如何使用"><span class="nav-number">2.3.</span> <span class="nav-text">监听器如何使用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#监听器是如何工作的"><span class="nav-number">2.4.</span> <span class="nav-text">监听器是如何工作的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#监听器总线如何传递消息"><span class="nav-number">2.5.</span> <span class="nav-text">监听器总线如何传递消息</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#小结"><span class="nav-number">3.</span> <span class="nav-text">小结</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2014 - 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Mcdull</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+</body>
+</html>
