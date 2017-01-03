@@ -84,18 +84,18 @@
 
 
 
-<meta name="description" content="因为项目问题，需要编程远程操作和管理容器，幸亏Docker提供了Restful API，又幸亏有神奇的网友写出了不同语言绑定的API Client，不用自己取写一套。这篇文章记录如何使用Java编程来操作远程Docker容器。">
+<meta name="description" content="因为项目问题，需要编程远程操作和管理容器，有幸Docker提供了Restful API，又幸亏有神奇的网友写出了不同语言绑定的API Client，不用自己去写一套。这篇文章记录如何使用Java编程来操作远程Docker容器。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Docker Remote API使用">
-<meta property="og:url" content="http://yoursite.com/2016/12/19/使用Docker-Remote-API操作远程主机上的Docker容器/index.html">
+<meta property="og:url" content="http://yoursite.com/2016/12/19/Docker Remote API使用/index.html">
 <meta property="og:site_name" content="FlyingMcdull">
-<meta property="og:description" content="因为项目问题，需要编程远程操作和管理容器，幸亏Docker提供了Restful API，又幸亏有神奇的网友写出了不同语言绑定的API Client，不用自己取写一套。这篇文章记录如何使用Java编程来操作远程Docker容器。">
+<meta property="og:description" content="因为项目问题，需要编程远程操作和管理容器，有幸Docker提供了Restful API，又幸亏有神奇的网友写出了不同语言绑定的API Client，不用自己去写一套。这篇文章记录如何使用Java编程来操作远程Docker容器。">
 <meta property="og:image" content="http://yoursite.com/figures/docker-remote-api/result1.png">
 <meta property="og:image" content="http://yoursite.com/figures/docker-remote-api/result2.png">
-<meta property="og:updated_time" content="2017-01-03T03:14:22.148Z">
+<meta property="og:updated_time" content="2017-01-03T03:32:59.074Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Docker Remote API使用">
-<meta name="twitter:description" content="因为项目问题，需要编程远程操作和管理容器，幸亏Docker提供了Restful API，又幸亏有神奇的网友写出了不同语言绑定的API Client，不用自己取写一套。这篇文章记录如何使用Java编程来操作远程Docker容器。">
+<meta name="twitter:description" content="因为项目问题，需要编程远程操作和管理容器，有幸Docker提供了Restful API，又幸亏有神奇的网友写出了不同语言绑定的API Client，不用自己去写一套。这篇文章记录如何使用Java编程来操作远程Docker容器。">
 <meta name="twitter:image" content="http://yoursite.com/figures/docker-remote-api/result1.png">
 
 
@@ -124,7 +124,7 @@
 
 
 
-  <link rel="canonical" href="http://yoursite.com/2016/12/19/使用Docker-Remote-API操作远程主机上的Docker容器/"/>
+  <link rel="canonical" href="http://yoursite.com/2016/12/19/Docker Remote API使用/"/>
 
 
 
@@ -261,7 +261,7 @@
   
 
   <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/12/19/使用Docker-Remote-API操作远程主机上的Docker容器/">
+  <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/12/19/Docker Remote API使用/">
 
   <span style="display:none" itemprop="author" itemscope itemtype="http://schema.org/Person">
     <meta itemprop="name" content="Mcdull">
@@ -352,7 +352,7 @@
       
 
       
-        <p>因为项目问题，需要编程远程操作和管理容器，幸亏Docker提供了Restful API，又幸亏有神奇的网友写出了不同语言绑定的API Client，不用自己取写一套。这篇文章记录如何使用Java编程来操作远程Docker容器。<a id="more"></a></p>
+        <p>因为项目问题，需要编程远程操作和管理容器，有幸Docker提供了Restful API，又幸亏有神奇的网友写出了不同语言绑定的API Client，不用自己去写一套。这篇文章记录如何使用Java编程来操作远程Docker容器。<a id="more"></a></p>
 <h1 id="开启docker远程监听"><a href="#开启docker远程监听" class="headerlink" title="开启docker远程监听"></a>开启docker远程监听</h1><p>在使用Restful API之前必须在Docker服务器端开启守护进程，监听相应的端口来响应API调用，直接命令行<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">service docker stop #如果之前已开启docker，先关掉</div><div class="line">docker -d -H unix:///var/run/docker.sock  -H tcp://0.0.0.0:4243 #端口号可以选择</div></pre></td></tr></table></figure></p>
 <h1 id="使用docker-java-API"><a href="#使用docker-java-API" class="headerlink" title="使用docker-java API"></a>使用docker-java API</h1><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">import</span> com.github.dockerjava.core.&#123;<span class="type">DockerClientBuilder</span>, <span class="type">DefaultDockerClientConfig</span>&#125;</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line">  * Created by Xingjun Wang on 2016/12/18.</div><div class="line">  */</div><div class="line"><span class="class"><span class="keyword">object</span> <span class="title">DockerTest</span> </span>&#123;</div><div class="line">  <span class="function"><span class="keyword">def</span> <span class="title">main</span></span>(args: <span class="type">Array</span>[<span class="type">String</span>]) &#123;</div><div class="line">    <span class="keyword">val</span> config = <span class="type">DefaultDockerClientConfig</span>.createDefaultConfigBuilder()</div><div class="line">        .withDockerHost(<span class="string">"tcp://node216:4243"</span>)</div><div class="line">    <span class="keyword">val</span> client = <span class="type">DockerClientBuilder</span>.getInstance(config).build()</div><div class="line">    <span class="keyword">val</span> images = client.listImagesCmd().exec()</div><div class="line">    println(images)</div><div class="line">    <span class="keyword">val</span> info = client.infoCmd().exec()</div><div class="line">    println(info)</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <h2 id="执行结果"><a href="#执行结果" class="headerlink" title="执行结果"></a>执行结果</h2><p>直接编译执行上面的代码，可以看到执行结果：<br><img src="/figures/docker-remote-api/result1.png" alt="result1"><br>服务器端可以看到对本次本次请求的响应<br><img src="/figures/docker-remote-api/result2.png" alt="result2"></p>
