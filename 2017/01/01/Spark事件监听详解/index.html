@@ -84,17 +84,17 @@
 
 
 
-<meta name="description" content="Spark中很多组件之间是靠事件消息实现通信的，之前分析了一下Spark中RPC机制，RPC和事件消息机制目的都是实现组件之间的通信，前者解决远程通信问题，而后者则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，实现driver端的组件之间的通信。本文就来解释一下Spark中事件监听是如何实现的。">
+<meta name="description" content="Spark中很多组件之间是靠事件消息实现通信的，之前分析了一下Spark中RPC机制，RPC和事件消息机制目的都是实现组件之间的通信，前者解决远程通信问题，而后者则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，实现driver端的组件之间的通信。本文就来解释一下Spark中事件监听是如何实现的。本文代码全部出自于Spark-2.0.0。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Spark事件监听详解">
 <meta property="og:url" content="http://yoursite.com/2017/01/01/Spark事件监听详解/index.html">
 <meta property="og:site_name" content="FlyingMcdull">
-<meta property="og:description" content="Spark中很多组件之间是靠事件消息实现通信的，之前分析了一下Spark中RPC机制，RPC和事件消息机制目的都是实现组件之间的通信，前者解决远程通信问题，而后者则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，实现driver端的组件之间的通信。本文就来解释一下Spark中事件监听是如何实现的。">
+<meta property="og:description" content="Spark中很多组件之间是靠事件消息实现通信的，之前分析了一下Spark中RPC机制，RPC和事件消息机制目的都是实现组件之间的通信，前者解决远程通信问题，而后者则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，实现driver端的组件之间的通信。本文就来解释一下Spark中事件监听是如何实现的。本文代码全部出自于Spark-2.0.0。">
 <meta property="og:image" content="http://yoursite.com/figures/spark-event-listener/observerPattern.jpg">
-<meta property="og:updated_time" content="2017-01-19T09:42:48.996Z">
+<meta property="og:updated_time" content="2017-01-19T09:47:29.013Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Spark事件监听详解">
-<meta name="twitter:description" content="Spark中很多组件之间是靠事件消息实现通信的，之前分析了一下Spark中RPC机制，RPC和事件消息机制目的都是实现组件之间的通信，前者解决远程通信问题，而后者则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，实现driver端的组件之间的通信。本文就来解释一下Spark中事件监听是如何实现的。">
+<meta name="twitter:description" content="Spark中很多组件之间是靠事件消息实现通信的，之前分析了一下Spark中RPC机制，RPC和事件消息机制目的都是实现组件之间的通信，前者解决远程通信问题，而后者则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，实现driver端的组件之间的通信。本文就来解释一下Spark中事件监听是如何实现的。本文代码全部出自于Spark-2.0.0。">
 <meta name="twitter:image" content="http://yoursite.com/figures/spark-event-listener/observerPattern.jpg">
 
 
@@ -351,7 +351,7 @@
       
 
       
-        <p>Spark中很多组件之间是靠事件消息实现通信的，之前分析了一下Spark中RPC机制，RPC和事件消息机制目的都是实现组件之间的通信，前者解决远程通信问题，而后者则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，实现driver端的组件之间的通信。本文就来解释一下Spark中事件监听是如何实现的。<br><a id="more"></a></p>
+        <p>Spark中很多组件之间是靠事件消息实现通信的，之前分析了一下Spark中RPC机制，RPC和事件消息机制目的都是实现组件之间的通信，前者解决远程通信问题，而后者则是在本地较为高效的方式。Spark中大量采用事件监听这种方式，实现driver端的组件之间的通信。本文就来解释一下Spark中事件监听是如何实现的。<em>本文代码全部出自于Spark-2.0.0</em>。<br><a id="more"></a></p>
 <h1 id="观察者模式和监听器"><a href="#观察者模式和监听器" class="headerlink" title="观察者模式和监听器"></a>观察者模式和监听器</h1><p>在设计模式中有一个观察者模式，该模式建立一种对象与对象之间的依赖关系，一个对象状态发生改变时立即通知其他对象，其他对象就据此作出相应的反应。其中发生改变的对象称之为观察目标（也有叫主题的），被通知的对象称之为观察者，可以有多个观察者注册到一个观察目标中，这些观察者之间没有联系，其数量可以根据需要增减。<br><img src="/figures/spark-event-listener/observerPattern.jpg" alt="observer-design-pattern"></p>
 <h1 id="Spark中的事件监听"><a href="#Spark中的事件监听" class="headerlink" title="Spark中的事件监听"></a>Spark中的事件监听</h1><h2 id="SparkListener"><a href="#SparkListener" class="headerlink" title="SparkListener"></a>SparkListener</h2><p>Spark中的事件监听机制，本质上其实就是观察者模式的实现，查看源码我们可以经常看到<em>*</em>listener这种命名的类或对象，顾名思义，这就是监听器类或对象。下面就以SparkListener为例来解析事件监听是如何设计的。首先我们看SparkListener<br><figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">SparkListener</span> <span class="keyword">extends</span> <span class="title">SparkListenerInterface</span> </span>&#123;</div><div class="line">  <span class="comment">//很多方法代码省略</span></div><div class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">onExecutorAdded</span></span>(executorAdded: <span class="type">SparkListenerExecutorAdded</span>): <span class="type">Unit</span> = &#123; &#125;</div><div class="line"></div><div class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">onExecutorRemoved</span></span>(executorRemoved: <span class="type">SparkListenerExecutorRemoved</span>): <span class="type">Unit</span> = &#123; &#125;</div><div class="line">  <span class="comment">//很多方法代码省略</span></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
 <p>为了简化分析，我们以executor的增删事件监听来做具体的分析。这里我们可以看到onExecutorAdded和onExecutorRemoved两个方法，很明显这是用来处理executor增删事件的方法。SparkListener继承自SparkListenerInterface接口，其内部就是这些方法的声明，代码省略。</p>
