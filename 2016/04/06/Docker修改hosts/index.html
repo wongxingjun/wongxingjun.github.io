@@ -90,7 +90,7 @@
 <meta property="og:url" content="http://yoursite.com/2016/04/06/Docker修改hosts/index.html">
 <meta property="og:site_name" content="FlyingMcdull">
 <meta property="og:description" content="Docker修改hosts?这还不简单，打开vim直接敲就完事儿了！然而事与愿违，事情没有我们想的那么简单。在很多场景中，比如我们需要搭建一个集群，这时候容器要识别集群内的节点，就需要添加相应的host解析。这时就需要修改容器的hosts文件，下面我们将会看到在Docker中自动化实现修改hosts不是那么简单的事。">
-<meta property="og:updated_time" content="2016-12-08T00:48:49.023Z">
+<meta property="og:updated_time" content="2017-02-28T09:22:07.497Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Docker修改hosts">
 <meta name="twitter:description" content="Docker修改hosts?这还不简单，打开vim直接敲就完事儿了！然而事与愿违，事情没有我们想的那么简单。在很多场景中，比如我们需要搭建一个集群，这时候容器要识别集群内的节点，就需要添加相应的host解析。这时就需要修改容器的hosts文件，下面我们将会看到在Docker中自动化实现修改hosts不是那么简单的事。">
@@ -350,12 +350,12 @@
 
       
         <p>Docker修改hosts?这还不简单，打开vim直接敲就完事儿了！然而事与愿违，事情没有我们想的那么简单。在很多场景中，比如我们需要搭建一个集群，这时候容器要识别集群内的节点，就需要添加相应的host解析。这时就需要修改容器的hosts文件，下面我们将会看到在Docker中自动化实现修改hosts不是那么简单的事。<br><a id="more"></a></p>
-<h1 id="问题的由来"><a href="#问题的由来" class="headerlink" title="问题的由来"></a>问题的由来</h1><p>hosts文件其实并不是存储在Docker镜像中的，/etc/hosts, /etc/resolv.conf和/etc/hostname，是存在/var/lib/docker/containers/(docker_id)目录下，容器启动时是通过mount将这些文件挂载到容器内部的。因此如果在容器中修改这些文件，修改部分不会存在于容器的top layer，而是直接写入这3个文件中。容器重启后修改内容不存在的原因是每次Docker在启动容器的时候，Docker每次创建新容器时，会根据当前docker0下的所有节点的IP信息重新建立hosts文件。也就是说，你的修改会被Docker给自动覆盖掉。</p>
+<h1 id="问题的由来"><a href="#问题的由来" class="headerlink" title="问题的由来"></a>问题的由来</h1><p>hosts文件其实并不是存储在Docker镜像中的，/etc/hosts, /etc/resolv.conf和/etc/hostname，是存在主机上的/var/lib/docker/containers/(docker_id)目录下，容器启动时是通过mount将这些文件挂载到容器内部的。因此如果在容器中修改这些文件，修改部分不会存在于容器的top layer，而是直接写入这3个文件中。容器重启后修改内容不存在的原因是Docker每次创建新容器时，会根据当前docker0下的所有节点的IP信息重新建立hosts文件。也就是说，你的修改会被Docker给自动覆盖掉。</p>
 <h1 id="解决办法"><a href="#解决办法" class="headerlink" title="解决办法"></a>解决办法</h1><p>修改hosts一眼看上去是一件很容易的事，根据上面的分析其实不是那么简单的，如果一个分布式系统在数十个节点上，每次重新启动都要去修改hosts显得很麻烦，如何解决这一问题，目前有以下办法。</p>
-<h2 id="开启时加参数"><a href="#开启时加参数" class="headerlink" title="开启时加参数"></a>开启时加参数</h2><p>开启容器时候添加参数–add-host machine:ip可以实现hosts修改，在容器中可以识别machine主机。缺点是很多个节点的话命令会很长，有点不舒服（当然，你可以脚本实现）</p>
-<h2 id="进入容器修改"><a href="#进入容器修改" class="headerlink" title="进入容器修改"></a>进入容器修改</h2><p>进入容器后可以用各种编辑器编辑修改hosts文件，这样是最简单粗暴的方式，缺点就是每次都要修改一次。</p>
+<h2 id="开启时加参数"><a href="#开启时加参数" class="headerlink" title="开启时加参数"></a>开启时加参数</h2><p>开启容器时候添加参数–add-host machine:ip可以实现hosts修改，在容器中可以识别machine主机。缺点是很多个节点的话命令会很长，有点不舒服（当然，你可以写一个脚本了）。</p>
+<h2 id="进入容器修改"><a href="#进入容器修改" class="headerlink" title="进入容器修改"></a>进入容器修改</h2><p>进入容器后可以用各种编辑器编辑修改hosts文件，这样是最简单粗暴的方式，缺点就是每次启动容器都要修改一次。</p>
 <h2 id="dnsmasq"><a href="#dnsmasq" class="headerlink" title="dnsmasq"></a>dnsmasq</h2><p>在每个容器中开启dnsmasq开负责局域网内的容器节点主机名解析，但是这种方式在跨物理机的时候，好像不是很方便（具体情况还没有实践过，挖坑日后再填）。可以参考一下<a href="https://github.com/kiwenlau/hadoop-cluster-docker" target="_blank" rel="external">kiwenlau的工作</a></p>
-<h2 id="修改容器hosts查找目录"><a href="#修改容器hosts查找目录" class="headerlink" title="修改容器hosts查找目录"></a>修改容器hosts查找目录</h2><p>我们可以想办法，让容器开启时候，不去找/etc/hosts文件，而是去找我们自己定义的hosts文件，下面是一个Dockerfile实例<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">FROM ubuntu:14.04</div><div class="line">RUN cp /etc/hosts /tmp/hosts #路径长度最好保持一致</div><div class="line">RUN mkdir -p -- /lib-override &amp;&amp; cp /lib/x86_64-linux-gnu/libnss_files.so.2 /lib-override</div><div class="line">RUN sed -i &apos;s:/etc/hosts:/tmp/hosts:g&apos; /lib-override/libnss_files.so.2</div><div class="line">ENV LD_LIBRARY_PATH /lib-override</div><div class="line">RUN echo &quot;192.168.0.1 node1&quot; &gt;&gt; /tmp/hosts #可以随意修改/tmp/hosts了</div><div class="line">...</div></pre></td></tr></table></figure></p>
+<h2 id="修改容器hosts查找目录"><a href="#修改容器hosts查找目录" class="headerlink" title="修改容器hosts查找目录"></a>修改容器hosts查找目录</h2><p>我们可以想办法让容器开启时候，不去找/etc/hosts文件，而是去找我们自己定义的hosts文件，下面是一个Dockerfile实例<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">FROM ubuntu:14.04</div><div class="line">RUN cp /etc/hosts /tmp/hosts #路径长度最好保持一致</div><div class="line">RUN mkdir -p -- /lib-override &amp;&amp; cp /lib/x86_64-linux-gnu/libnss_files.so.2 /lib-override</div><div class="line">RUN sed -i &apos;s:/etc/hosts:/tmp/hosts:g&apos; /lib-override/libnss_files.so.2</div><div class="line">ENV LD_LIBRARY_PATH /lib-override</div><div class="line">RUN echo &quot;192.168.0.1 node1&quot; &gt;&gt; /tmp/hosts #可以随意修改/tmp/hosts了</div><div class="line">...</div></pre></td></tr></table></figure></p>
 <p>这样修改后，容器每次启动时就不去找/etc/hosts了，而是我们自己定义的/tmp/hosts，可以随心所欲在其中修改了</p>
 <h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>以上问题可以用于跨主机部署分布式Docker集群，结合之前的跨物理机Docker网络互联，便可以实现快速高效部署分布式集群</p>
 
@@ -472,7 +472,7 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">42</span>
+              <span class="site-state-item-count">43</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>
