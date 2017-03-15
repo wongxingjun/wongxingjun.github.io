@@ -95,7 +95,7 @@
 <meta property="og:image" content="http://yoursite.com/figures/tune-spark-job-1/spark-tuning-f3.png">
 <meta property="og:image" content="http://yoursite.com/figures/tune-spark-job-1/spark-tuning-f4.png">
 <meta property="og:image" content="http://yoursite.com/figures/tune-spark-job-1/spark-tuning-f5.png">
-<meta property="og:updated_time" content="2016-11-05T08:24:45.092Z">
+<meta property="og:updated_time" content="2017-03-14T09:34:28.426Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Spark Job调优(Part 1)">
 <meta name="twitter:description" content="Spark应用的执行效率是所有程序员需要关心的问题，单纯从代码层面去了解和优化明显是不够的，本文介绍Spark的底层执行模式，并给出了一些经验性的调优建议。本文是对Cloudera一篇博文的译文。">
@@ -391,7 +391,7 @@
 <p>那如果rdd1和rdd2使用不同的分区器，或者使用默认的hash分区器但配置不同的分区数呢？那样的话，仅仅只有一个rdd（较少分区的RDD）需要重新shuffle后再join。</p>
 <p>一样的转换，一样的输入但不一样的分区数，task执行如下：<br><img src="/figures/tune-spark-job-1/spark-tuning-f5.png" alt="spark-job-tuning"></p>
 <p>有一种当join两个数据集时避免shuffle操作的方法就是使用<em>broadcast variables</em>广播变量的优点。当一个数据集足够小，小到可以在单个executor的内存中存放时，可以将它在driver上载入一个hash table中然后广播给每个executor。然后map转换就可以参照hash table来查询。</p>
-<h1 id="何时shuffle越多越好"><a href="#何时shuffle越多越好" class="headerlink" title="何时shuffle越多越好"></a>何时shuffle越多越好</h1><p>在尽力减少shuffle数的规则外有一个例外。额外的shuffle操作可以有利于增加并行度。比如说你的数据到了一些不可分割的文件里，<em>InputFormat</em>指定的分区方式可能将大量的record放进每个分区中，这样就不能产生足够多的分区来充分利用可用的core。在这种情况下在载入数据后通过重新分区来将数据分成更多的分区（这就会带来一次shuffle操作）就可以让之后的操作可以利用更多集群的CPU。</p>
+<h1 id="何时shuffle越多越好"><a href="#何时shuffle越多越好" class="headerlink" title="何时shuffle越多越好"></a>何时shuffle越多越好</h1><p>在尽力减少shuffle的规则外有一个例外。额外的shuffle操作可以有利于增加并行度。比如说你的数据到了一些不可分割的文件里，<em>InputFormat</em>指定的分区方式可能将大量的record放进每个分区中，这样就不能产生足够多的分区来充分利用可用的core。在这种情况下在载入数据后通过重新分区来将数据分成更多的分区（这就会带来一次shuffle操作）就可以让之后的操作可以利用更多集群的CPU。</p>
 <p>还有一个例外就是当用reduce或者aggregate action来聚合数据到driver时。当对大量分区进行巨厚的时候，在driver上单线程合并所有的结果很快就会变成计算的瓶颈。为了减少driver上的负载，可以先用<em>reduceByKey</em>或<em>aggregateByKey</em>来进行一次分布式的合并，这样可以将数据集分成更少的分区。在将结果发送到driver上进行最后的聚合之前分区的value之间两两并行合并。可以看一下<em>treeReduce</em>和<em>treeAggregate</em>是如何做的。（注意在1.2版本中，大多数最近的版本都被标记为开发者API，<a href="https://issues.apache.org/jira/browse/SPARK-54300" target="_blank" rel="external">SPARK-5430</a>开始试图将其作为稳定API加入core中）</p>
 <p>当聚合数据已经根据一个key分组了的时候这个小窍门分外有效。比如说，一个应用想要统计一篇文章中所有单词出现的次数，然后将结果以map形式推送到driver上。一种方式可以通过aggregate action实现，具体就是每个分区进行一次本地的map，最后在driver上将所有的map合并。另一种方式可以通过<em>aggregateByKey</em>来实现，具体就是分布式进行count，然后简单地<em>collectAsMap</em>结果到driver上。</p>
 <h1 id="二次排序"><a href="#二次排序" class="headerlink" title="二次排序"></a>二次排序</h1><p>另一个需要知道的重要的机制就是<em>repartitionAndSortWithinPartitions</em>转换，这个转换听起来挺神秘，但是出现所有排序的奇怪情况。它将排序push到shuffle的机器上，在那里大量数据可以被高效地溢写并且排序可以和其他操作结合起来。</p>
@@ -512,7 +512,7 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">43</span>
+              <span class="site-state-item-count">42</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>

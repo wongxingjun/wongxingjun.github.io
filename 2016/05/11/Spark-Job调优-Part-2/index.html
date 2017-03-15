@@ -92,7 +92,7 @@
 <meta property="og:description" content="这篇文章将会完成Part 1中留下的部分，我会尽力介绍更多的你关心的能加速Spark程序的东西。特别是你将会学习资源调优或者配置Spark来充分利用集群提供的所有资源。然后我们会转向并行度调优">
 <meta property="og:image" content="http://yoursite.com/figures/tune-spark-job-2/spark-tuning2-f1.png">
 <meta property="og:image" content="http://yoursite.com/figures/tune-spark-job-2/spark-tuning2-f2.png">
-<meta property="og:updated_time" content="2016-11-05T08:24:45.097Z">
+<meta property="og:updated_time" content="2017-03-14T09:29:38.346Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Spark Job调优(Part 2)">
 <meta name="twitter:description" content="这篇文章将会完成Part 1中留下的部分，我会尽力介绍更多的你关心的能加速Spark程序的东西。特别是你将会学习资源调优或者配置Spark来充分利用集群提供的所有资源。然后我们会转向并行度调优">
@@ -357,7 +357,7 @@
 <p>要看一下Spark在YARN上跑的背景知识，可以去看这篇<a href="http://blog.cloudera.com/blog/2014/05/apache-spark-resource-management-and-yarn-app-models/" target="_blank" rel="external">博客</a></p>
 <p>在YARN上考虑的两个主要资源就是<em>CPU</em>和<em>内存</em>，磁盘和网络IO也会影响Spark性能，但是Spark和YARN目前都没有有效管理机制。</p>
 <p>一个应用中每个Spark executor都有相同的固定数目的core和固定的heap size。core数可以在命令行调用spark-submit，spark-shell或者pyspark时通过<em>–executor-memory</em>指定，或者在<em>spark-defaults.conf</em>文件中或者<em>SparkConf</em>对象中设置<em>spark.executor.cores</em>参数。类似地，heap size也可以通过<em>–executor-memory</em>或者<em>spark.executor.memory</em>来控制。<em>cores</em>属性控制了一个executor可以并发执行的task数量，<em>–executor-cores 5</em>意味着每个executor最多可以同时执行5个task。内存属性指明了Spark可以缓存的数据量，同时也是用来group，aggregate和join的shuffle数据结构大小。</p>
-<p><em>–num-executor</em>命令行参数或者<em>spark.executor.instances</em>配置属性可以控制请求的executor个数。从CDH 5.4/Spark 1.3开始，你可以通过设置<em>spark.dynamicAllocation.enabled</em>属性打开动态资源分配了禁用这一属性。动态分配可以让Spark应用在有挂起的task时请求executor，而没有task时释放executor。</p>
+<p><em>–num-executor</em>命令行参数或者<em>spark.executor.instances</em>配置属性可以控制请求的executor个数。从CDH 5.4/Spark 1.3开始，你可以通过设置<em>spark.dynamicAllocation.enabled</em>属性打开动态资源分配来禁用这一属性。动态分配可以让Spark应用在有挂起的task时请求executor，而没有task时释放executor。</p>
 <p>理解Spark资源请求如何映射到YARN中是很重要的，YARN相关属性是：</p>
 <ul>
 <li><strong>yarn.nodemanager.resource.memory-mb</strong></li>
@@ -380,9 +380,9 @@
 <ul>
 <li><p>application master是一个非executor的container，YARN中有一个特殊的请求机制，master必须使用它自己的资源预算。在<em>yarn-client</em>模式中，默认是1024 MB内存和1个vcore。在<em>yarn-cluster</em>模式中，master运行着driver，所以通常用<em>–driver-memory</em>和<em>–driver-cores</em>属性来设置比较有效。</p>
 </li>
-<li><p>给executor设置太多的内存经常会导致过大的GC（garbage collection，JVM的内存垃圾回收）延迟，单个executor的粗略内存上限是64GB。</p>
+<li><p>给executor设置太多的内存经常会导致过高的GC（garbage collection，JVM的内存垃圾回收）延迟，单个executor的粗略内存上限是64GB。</p>
 </li>
-<li><p>我也注意到HDFS客户端经常受大量的并发线程所限制。每个executor上大概上限是5个task，这样就可以达到最大的write throughput，所以最好还是让每个executor上的core少于5。</p>
+<li><p>我也注意到HDFS客户端经常受大量的并发线程所限制。每个executor上大概上限是5个task，这样就可以达到最大的write throughput，所以最好还是让每个executor上的core少于5个。</p>
 </li>
 <li><p>运行小的executor（比如一个core，运行单个task的内存量）就不能利用JVM多线程执行多个task的优势。比如每个executor上需要将广播变量复制一次，那么很多小的executor就会有大量数据副本。</p>
 </li>
@@ -541,7 +541,7 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">43</span>
+              <span class="site-state-item-count">42</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>
