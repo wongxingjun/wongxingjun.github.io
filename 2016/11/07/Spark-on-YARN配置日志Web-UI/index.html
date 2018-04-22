@@ -7,7 +7,7 @@
 
 <html class="theme-next mist use-motion" lang="zh-Hans">
 <head>
-  <meta charset="UTF-8"/>
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 
@@ -84,19 +84,19 @@
 
 
 
-<meta name="description" content="Spark部署在YARN之后，从Standalone模式下的Spark Web UI直接无法看到执行过的application日志，不利于性能分析。得益于实验室师弟的帮忙，本文记录如何配置history UI。">
+<meta name="description" content="Spark部署在YARN之后，从Standalone模式下的Spark Web UI直接无法看到执行过的application日志，不利于性能分析。本文记录如何配置history UI。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Spark on YARN配置日志Web UI">
 <meta property="og:url" content="http://yoursite.com/2016/11/07/Spark-on-YARN配置日志Web-UI/index.html">
 <meta property="og:site_name" content="FlyingMcdull">
-<meta property="og:description" content="Spark部署在YARN之后，从Standalone模式下的Spark Web UI直接无法看到执行过的application日志，不利于性能分析。得益于实验室师弟的帮忙，本文记录如何配置history UI。">
+<meta property="og:description" content="Spark部署在YARN之后，从Standalone模式下的Spark Web UI直接无法看到执行过的application日志，不利于性能分析。本文记录如何配置history UI。">
 <meta property="og:image" content="http://yoursite.com/figures/spark-yarn-ui/trackingui.png">
 <meta property="og:image" content="http://yoursite.com/figures/spark-yarn-ui/trackingui2.png">
 <meta property="og:image" content="http://yoursite.com/figures/spark-yarn-ui/historyServer.png">
-<meta property="og:updated_time" content="2016-11-07T11:38:36.623Z">
+<meta property="og:updated_time" content="2017-03-22T14:05:32.752Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Spark on YARN配置日志Web UI">
-<meta name="twitter:description" content="Spark部署在YARN之后，从Standalone模式下的Spark Web UI直接无法看到执行过的application日志，不利于性能分析。得益于实验室师弟的帮忙，本文记录如何配置history UI。">
+<meta name="twitter:description" content="Spark部署在YARN之后，从Standalone模式下的Spark Web UI直接无法看到执行过的application日志，不利于性能分析。本文记录如何配置history UI。">
 <meta name="twitter:image" content="http://yoursite.com/figures/spark-yarn-ui/trackingui.png">
 
 
@@ -131,7 +131,7 @@
 
 
 
-  <title> Spark on YARN配置日志Web UI | FlyingMcdull </title>
+  <title> Spark on YARN配置日志Web UI | FlyingMcdull </title><!-- hexo-inject:begin --><!-- hexo-inject:end -->
 </head>
 
 <body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
@@ -152,7 +152,7 @@
     
   
 
-  <div class="container one-collumn sidebar-position-left page-post-detail ">
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><div class="container one-collumn sidebar-position-left page-post-detail ">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
@@ -353,7 +353,7 @@
       
 
       
-        <p>Spark部署在YARN之后，从Standalone模式下的Spark Web UI直接无法看到执行过的application日志，不利于性能分析。得益于实验室师弟的帮忙，本文记录如何配置history UI。<br><a id="more"></a></p>
+        <p>Spark部署在YARN之后，从Standalone模式下的Spark Web UI直接无法看到执行过的application日志，不利于性能分析。本文记录如何配置history UI。<br><a id="more"></a></p>
 <h1 id="修改spark-defaults-conf"><a href="#修改spark-defaults-conf" class="headerlink" title="修改spark-defaults.conf"></a>修改spark-defaults.conf</h1><p>修改$SPARK_HOME/conf/spark-default.conf<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">spark.eventLog.enabled    true</div><div class="line">spark.eventLog.compress   true</div><div class="line">spark.eventLog.dir 		  file:///home/path/to/eventLog</div><div class="line">spark.yarn.historyServer.address   master:18080</div></pre></td></tr></table></figure></p>
 <p>其中，spark.eventLog.enabled开启时间记录，默认是false，spark.eventLog.compress是否压缩记录Spark事件，默认snappy，spark.eventLog.dir存储日志路径，可以是hdfs路径（如hdfs://master:9000/history）或者driver本地路径，在此之前要创建相应的目录，否则会报错。spark.yarn.historyServer.address是设置Spark history server的地址和端口，这个链接将会链接到YARN监测界面上的Tracking UI。<br><img src="/figures/spark-yarn-ui/trackingui.png" alt="trackingui"><br>这样点击History就可以跳转到Spark的Web UI查看相应的日志<br><img src="/figures/spark-yarn-ui/trackingui2.png" alt="trackingui"></p>
 <h1 id="修改sparn-env-sh"><a href="#修改sparn-env-sh" class="headerlink" title="修改sparn-env.sh"></a>修改sparn-env.sh</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">export SPARK_HISTORY_OPTS=&quot;-Dspark.history.ui.port=18080 -Dspark.history.retainedApplications=3 -Dspark.history.fs.logDirectory=file:///home/path/to/eventLog&quot;</div></pre></td></tr></table></figure>
@@ -598,7 +598,7 @@
         <div class="copyright" >
   
   &copy;  2014 - 
-  <span itemprop="copyrightYear">2017</span>
+  <span itemprop="copyrightYear">2018</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
@@ -689,7 +689,24 @@
   
 
 
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({"tex2jax":{"inlineMath":[["$","$"],["\\(","\\)"]],"skipTags":["script","noscript","style","textarea","pre","code"],"processEscapes":true},"TeX":{"equationNumbers":{"autoNumber":"AMS"}}});
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
 
 
 

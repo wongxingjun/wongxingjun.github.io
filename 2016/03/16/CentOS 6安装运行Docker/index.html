@@ -7,7 +7,7 @@
 
 <html class="theme-next mist use-motion" lang="zh-Hans">
 <head>
-  <meta charset="UTF-8"/>
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 
@@ -129,7 +129,7 @@
 
 
 
-  <title> CentOS 6安装运行Docker | FlyingMcdull </title>
+  <title> CentOS 6安装运行Docker | FlyingMcdull </title><!-- hexo-inject:begin --><!-- hexo-inject:end -->
 </head>
 
 <body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
@@ -150,7 +150,7 @@
     
   
 
-  <div class="container one-collumn sidebar-position-left page-post-detail ">
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><div class="container one-collumn sidebar-position-left page-post-detail ">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
@@ -354,7 +354,7 @@
         <p>最近需要用到Docker，奈何服务器上全是安装的CentOS6系统，Docker官方推荐的CentOS版本是7，但是很多旧机器依旧是5或者6系列，本文介绍如何在不进行系统升级的情况下在CentOS6中安装并运行Docker<br><a id="more"></a></p>
 <h1 id="升级内核"><a href="#升级内核" class="headerlink" title="升级内核"></a>升级内核</h1><p>按照官方给出的要求，内核至少要升级到3.10以上，这里使用的是3.10.58内核，解压内核源码<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">tar -xf linux-3.10.58.tar.xz</div><div class="line">cd linux-3.10.58</div><div class="line">cp /boot/config-2.6.32-431.el6.x86_64 ./</div><div class="line">mv config-2.6.32-431.el6.x86_64 .config</div><div class="line">sh -c &apos;yes &quot;&quot; | make oldconfig&apos;</div></pre></td></tr></table></figure></p>
 <p>按照当前内核默认的配置，但是一定要注意，要加入Cgroups的支持<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">make menuconfig</div></pre></td></tr></table></figure></p>
-<p>General setup  —&gt;<br>    Control Group support  —&gt;<br>为方便起见，全选，然后保存，开始编译安装<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">make -j16 bzImage &amp;&amp; make -j16 modules</div><div class="line">make modules_install &amp;&amp; make install</div></pre></td></tr></table></figure></p>
+<p>General setup  —-&gt;<br>    Control Group support  —-&gt;<br>为方便起见，全选，然后保存，开始编译安装<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">make -j16 bzImage &amp;&amp; make -j16 modules</div><div class="line">make modules_install &amp;&amp; make install</div></pre></td></tr></table></figure></p>
 <p>安装完之后，添加grub启动引导项，略</p>
 <h1 id="安装Docker"><a href="#安装Docker" class="headerlink" title="安装Docker"></a>安装Docker</h1><p>重启进入新内核后开始安装Docker，按照官方给出的在CentOS下安装说明<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">sudo tee /etc/yum.repos.d/docker.repo &lt;&lt;-&apos;EOF&apos;</div><div class="line">[dockerrepo]</div><div class="line">name=Docker Repository</div><div class="line">baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/</div><div class="line">enabled=1</div><div class="line">gpgcheck=1</div><div class="line">gpgkey=https://yum.dockerproject.org/gpg</div><div class="line">EOF</div></pre></td></tr></table></figure></p>
 <p>这里有个坑说明一下，就是在RedHat下安装，这里的<em>$releasever</em>要改成对应的版本号，比如6，不然就会定向到错误的源，然后安装Docker<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">yum install docker-engine</div><div class="line">service docker start</div></pre></td></tr></table></figure></p>
@@ -600,7 +600,7 @@
         <div class="copyright" >
   
   &copy;  2014 - 
-  <span itemprop="copyrightYear">2017</span>
+  <span itemprop="copyrightYear">2018</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
@@ -691,7 +691,24 @@
   
 
 
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({"tex2jax":{"inlineMath":[["$","$"],["\\(","\\)"]],"skipTags":["script","noscript","style","textarea","pre","code"],"processEscapes":true},"TeX":{"equationNumbers":{"autoNumber":"AMS"}}});
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
 
 
 

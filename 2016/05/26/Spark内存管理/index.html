@@ -7,7 +7,7 @@
 
 <html class="theme-next mist use-motion" lang="zh-Hans">
 <head>
-  <meta charset="UTF-8"/>
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 
@@ -129,7 +129,7 @@
 
 
 
-  <title> Spark内存管理 | FlyingMcdull </title>
+  <title> Spark内存管理 | FlyingMcdull </title><!-- hexo-inject:begin --><!-- hexo-inject:end -->
 </head>
 
 <body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
@@ -150,7 +150,7 @@
     
   
 
-  <div class="container one-collumn sidebar-position-left page-post-detail ">
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><div class="container one-collumn sidebar-position-left page-post-detail ">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
@@ -360,7 +360,7 @@
 </li>
 <li><p><strong>User Memory</strong> 这一块内存池是在Spark Memory之后分配，它的使用方式完全取决于你。你可以存储你用来转换数据的数据结构。比如你可以用mapPartition转换管理hash table来做aggreagtion这种方式重写Spark aggregation，这就会用User Memory。在Spark-1.6.0中这块内存大小可以通过<strong>(Java Heap - Reserved Memory) * (1.0 - spark.memory.fraction)</strong>来计算，默认是<strong>(Java Heap - 300M) * 0.25</strong>。比如4G的Heap大小，你就会有949M的User Memory。再次说明一下，这一块内存是User Memory，存什么和怎么存都取决于你，Spark不会管你在这里干什么和是否忽略分界。代码中忽略分界可能会导致OOM(out of memory)错误。</p>
 </li>
-<li><p><strong>Spark Memory</strong> 最后Apache Spark还管理着一块Spark Memory，它的大小可以通过<strong>(Java Heap – Reserved Memory) * spark.memory.fraction</strong>计算，Spark-1.6.0中默认是<strong>(Java Heap - 300M) * 0.75</strong>。比如你有4G的Heap那么就会有2847M的Spark Memory。这一整块内存池被分为2个区域—<strong>Storage Memory</strong>和<strong>Execution Memory</strong>，他们之间的分界是由<strong>spark.memory.storageFraction</strong>参数决定，默认是0.5。新的内存管理方式的优点就在于这个分界线不是固定的，根据内存压力这个分界线是可变的。比如说一个区域会占用另一个区域的内存而变大。下文将会讨论分界线如何变化，先看看这块内存如何使用的：</p>
+<li><p><strong>Spark Memory</strong> 最后Apache Spark还管理着一块Spark Memory，它的大小可以通过<strong>(Java Heap – Reserved Memory) * spark.memory.fraction</strong>计算，Spark-1.6.0中默认是<strong>(Java Heap - 300M) * 0.75</strong>。比如你有4G的Heap那么就会有2847M的Spark Memory。这一整块内存池被分为2个区域—-<strong>Storage Memory</strong>和<strong>Execution Memory</strong>，他们之间的分界是由<strong>spark.memory.storageFraction</strong>参数决定，默认是0.5。新的内存管理方式的优点就在于这个分界线不是固定的，根据内存压力这个分界线是可变的。比如说一个区域会占用另一个区域的内存而变大。下文将会讨论分界线如何变化，先看看这块内存如何使用的：</p>
 <blockquote>
 <p><strong>Storage Memory</strong> 这一块内存用作Spark缓存数据和序列化数据”unroll”临时空间。此外所有的”broadcast”广播变量都以缓存块存在这里。感兴趣的话unroll代码在<a href="https://github.com/apache/spark/blob/branch-1.6/core/src/main/scala/org/apache/spark/storage/MemoryStore.scala#L249" target="_blank" rel="external">这里</a>。你可能会看到其实并不需要足够的空间来存unrolled块- 如果没有足够的内存放下所有的unrolled分区，如果设置的持久化level允许的话，Spark将会把它直接放进磁盘。所有的broadcast变量都用MEMORY_AND_DISK持久化level缓存。<br><strong>Execution Memory</strong> 这一块内存是用来存储Spark task执行需要的对象。比如用来存储Map阶段的shuffle临时buffer，此外还用来存储hash合并用到的hash table。当没有足够可用内存时，这块内存同样可以溢写到磁盘，但是这块内存不能被其他线程（tasks）强行清除。</p>
 </blockquote>
@@ -589,7 +589,7 @@
         <div class="copyright" >
   
   &copy;  2014 - 
-  <span itemprop="copyrightYear">2017</span>
+  <span itemprop="copyrightYear">2018</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
@@ -680,7 +680,24 @@
   
 
 
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({"tex2jax":{"inlineMath":[["$","$"],["\\(","\\)"]],"skipTags":["script","noscript","style","textarea","pre","code"],"processEscapes":true},"TeX":{"equationNumbers":{"autoNumber":"AMS"}}});
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
 
 
 

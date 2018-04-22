@@ -7,7 +7,7 @@
 
 <html class="theme-next mist use-motion" lang="zh-Hans">
 <head>
-  <meta charset="UTF-8"/>
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 
@@ -127,7 +127,7 @@
 
 
 
-  <title> Xen的Credit调度算法 | FlyingMcdull </title>
+  <title> Xen的Credit调度算法 | FlyingMcdull </title><!-- hexo-inject:begin --><!-- hexo-inject:end -->
 </head>
 
 <body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
@@ -148,7 +148,7 @@
     
   
 
-  <div class="container one-collumn sidebar-position-left page-post-detail ">
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><div class="container one-collumn sidebar-position-left page-post-detail ">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
@@ -352,7 +352,7 @@
         <p>我的工作中要涉及到Xen虚拟化技术，尤为关注虚拟CPU（以下简称VCPU）的调度算法，Xen的原理就不做介绍了。这篇主要关注一下VCPU的调度算法<br><a id="more"></a></p>
 <h1 id="VCPU调度"><a href="#VCPU调度" class="headerlink" title="VCPU调度"></a>VCPU调度</h1><p>计算机系统中CPU完成几乎所有的计算工作，OS控制CPU在系统中多个进程间切换，这就是CPU调度。一个物理机可以运行多个虚拟机，虚拟机具有几乎和物理机同样的功能特性。一般而言，物理服务器上的物理CPU（以下简称PCPU）数量会少于虚拟机的VCPU总数，因此存在VCPU对PCPU的分时复用。Xen必须要为VCPU合理分配时间片（占用PCPU的时间长短）并维护VCPU的状态，对VCPU使用PCPU进行合理的调度。</p>
 <h1 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h1><p>考虑到通用性、稳定性等因素，Xen默认采用Credit调度算法来实现VCPU调度，实现了一种按照比例公平共享的调度策略，可以应用在SMP中。Credit，中文意思是账目，我们可以理解为记账式调度算法。在Credit调度器中每个虚拟机有两个可以配置的参数:weight和cap。weight表示VM的权值，每个VM可以获得的CPU时间和weight直接相关。Credit根据weight按比例分配CPU时间给VM。Credit支持工作保留模式，当PCPU空闲时，已经用尽预先分配CPU时间的VM可以得到额外的补充。cap是用来限制VM可以获得时间片的上限。Credit调度器为每一个VCPU维护一个credit值，用来表示可以运行CPU时间。VCPU占用PCPU时会消耗credit，调度器会每隔一个周期时间根据VM的weight为VCPU补充credit。Credit调度算法中有3个优先级，分别是boost &gt; under &gt; over，优先级由credit大小来决定。credit &lt; 0时，优先级为over，否则就是under。boost优先级是后来为了降低IO处理的延迟而引进的一个优先级，如果处于阻塞状态的VCPU收到了一个外部事件，就会被唤醒并强制设置为boost优先级，可以抢占PCPU来运行。Credit调度器采用选取VCPU队列中处于under优先级的VCPU来运行，同等优先级的VCPU采用Round-Robin调度。Credit调度算法可以很好支持SMP，每个PCPU维护一个VCPU队列，队列按照优先级从高到低排列。当PCPU所维护的队列没有VCPU可以调度运行，就会从别的PCPU的队列中窃取一个可以调度的VCPU来运行。</p>
-<h1 id="调度过程"><a href="#调度过程" class="headerlink" title="调度过程"></a>调度过程</h1><p>在Credit调度算法中，每个PCPU下面都有一个VCPU的运行队列，每个运行队列中的VCPU都有一个credit值，credit表示VCPU的priority的价值。CPU调度的是最先入队的处于队首的在under或under状态之上的VCPU，每10ms为一个时间片，相应产生一次中断。如果被调度的VCPU的credit处于Over状态，那么它将不再被继续调度，重新计算其credit值，调度后面的第一个处于under状态下的VCPU；如果VCPU执行了3个时间片也就是30ms时，原先的VCPU还是没有处于over状态，那么这个VCPU也将不被继续调度，credit值将重新计算，处于over状态的VCPU的 credit的值不被增加。在启动Xen时会初始化Credit调度算法，创建一个idle_domain，它有和物理CPU个数相同的VCPU，每个VCPU位于对应的物理CPU上，用于占位和空跑，相对于其他domain的VCPU，idle_domain的VCPU优先级是最低的。在初始化时__start_xen–&gt;init_idle_domain–&gt;scheduler_init中会将软中断和schedule()绑定，并设置每个PCPU的用于schedule的s_timer，其处理函数是s_timer_fn，主要是触发软中断SCHEDULE_SOFTIRQ。Schedule()会在每3个tick周期（30ms，即一个VCPU得到调度后运行的时间片）执行一次，该过程的结果为该PCPU找出合适的VCPU和时间片，用于该VCPU在此PCPU上的运行，然后进行上下文切换。这个schedule过程是根据选择的调度算法来确定的。在初始化domain时调度模块会初始化其VCPU的调度信息，VCPU的初始化主要是把VCPU插入到其PCPU的运行就绪队列runq上和活动VCPU列表中。如果发现其对应的PCPU还没初始化，则初始化该PCPU。在初始化每个PCPU时会设置它的tick的timer，每个tick周期（10ms）会执行一次csched_tick，来更新该PCPU上运行的当前VCPU的credit值，减去credit_per_tick，该值是100。当活动VCPU列表为空时说明所有VCPU的credit都为负，则重新计算credit值。否则通过pick后PCPU是否变化来检查是否需要进行VCPU的迁移，如果需要则触发软中断，执行schedule算法。credit算法在执行schedule时，会首先获得该PCPU的就绪队列runq上队首VCPU，即snext，检查其credit值有没有用完，如果没有用完直接返回。如果用完表明该PCPU的就绪队列上没有Under或Boost状态的VCPU，则进行负载均衡，查找其它PCPU上优先级较高的VCPU，执行run_steal把它偷过来运行。如果还没有找到合适的，就返回之前得到的snext。主ticker的master_timer由csched_priv持有，在csched_start_tickers里初始化，它每3个tick周期通过csched_acct来计算所有domain的VCPU的credit值，主要是根据当前credit总值，每个domain占用的权重weight和比例上限cap，计算出每个domain分得的credit值，然后再平均分配到每个VCPU上，VCPU的credit值就等于原有的credit值和新分到的credit之和。根据VCPU最新的credit值来确定VCPU的调度优先级是Over还是Under，如果是Over且cap有设置，则执行sleep，把自己调度出来，等待下次判断和调度。</p>
+<h1 id="调度过程"><a href="#调度过程" class="headerlink" title="调度过程"></a>调度过程</h1><p>在Credit调度算法中，每个PCPU下面都有一个VCPU的运行队列，每个运行队列中的VCPU都有一个credit值，credit表示VCPU的priority的价值。CPU调度的是最先入队的处于队首的在under或under状态之上的VCPU，每10ms为一个时间片，相应产生一次中断。如果被调度的VCPU的credit处于Over状态，那么它将不再被继续调度，重新计算其credit值，调度后面的第一个处于under状态下的VCPU；如果VCPU执行了3个时间片也就是30ms时，原先的VCPU还是没有处于over状态，那么这个VCPU也将不被继续调度，credit值将重新计算，处于over状态的VCPU的 credit的值不被增加。在启动Xen时会初始化Credit调度算法，创建一个idle_domain，它有和物理CPU个数相同的VCPU，每个VCPU位于对应的物理CPU上，用于占位和空跑，相对于其他domain的VCPU，idle_domain的VCPU优先级是最低的。在初始化时__start_xen—&gt;init_idle_domain—&gt;scheduler_init中会将软中断和schedule()绑定，并设置每个PCPU的用于schedule的s_timer，其处理函数是s_timer_fn，主要是触发软中断SCHEDULE_SOFTIRQ。Schedule()会在每3个tick周期（30ms，即一个VCPU得到调度后运行的时间片）执行一次，该过程的结果为该PCPU找出合适的VCPU和时间片，用于该VCPU在此PCPU上的运行，然后进行上下文切换。这个schedule过程是根据选择的调度算法来确定的。在初始化domain时调度模块会初始化其VCPU的调度信息，VCPU的初始化主要是把VCPU插入到其PCPU的运行就绪队列runq上和活动VCPU列表中。如果发现其对应的PCPU还没初始化，则初始化该PCPU。在初始化每个PCPU时会设置它的tick的timer，每个tick周期（10ms）会执行一次csched_tick，来更新该PCPU上运行的当前VCPU的credit值，减去credit_per_tick，该值是100。当活动VCPU列表为空时说明所有VCPU的credit都为负，则重新计算credit值。否则通过pick后PCPU是否变化来检查是否需要进行VCPU的迁移，如果需要则触发软中断，执行schedule算法。credit算法在执行schedule时，会首先获得该PCPU的就绪队列runq上队首VCPU，即snext，检查其credit值有没有用完，如果没有用完直接返回。如果用完表明该PCPU的就绪队列上没有Under或Boost状态的VCPU，则进行负载均衡，查找其它PCPU上优先级较高的VCPU，执行run_steal把它偷过来运行。如果还没有找到合适的，就返回之前得到的snext。主ticker的master_timer由csched_priv持有，在csched_start_tickers里初始化，它每3个tick周期通过csched_acct来计算所有domain的VCPU的credit值，主要是根据当前credit总值，每个domain占用的权重weight和比例上限cap，计算出每个domain分得的credit值，然后再平均分配到每个VCPU上，VCPU的credit值就等于原有的credit值和新分到的credit之和。根据VCPU最新的credit值来确定VCPU的调度优先级是Over还是Under，如果是Over且cap有设置，则执行sleep，把自己调度出来，等待下次判断和调度。</p>
 <h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>以上简要介绍了一下Xen默认的credit调度算法，这种算法基于公平主义设计，所以针对一些有实时性要求的应用，就会存在短板，影响性能，对其进行适当的优化适应默某些特定场景下实时性需求，也是我的工作之一。后期会对VCPU调度的一些细节进行介绍。</p>
 
       
@@ -592,7 +592,7 @@
         <div class="copyright" >
   
   &copy;  2014 - 
-  <span itemprop="copyrightYear">2017</span>
+  <span itemprop="copyrightYear">2018</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
@@ -683,7 +683,24 @@
   
 
 
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({"tex2jax":{"inlineMath":[["$","$"],["\\(","\\)"]],"skipTags":["script","noscript","style","textarea","pre","code"],"processEscapes":true},"TeX":{"equationNumbers":{"autoNumber":"AMS"}}});
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
 
 
 

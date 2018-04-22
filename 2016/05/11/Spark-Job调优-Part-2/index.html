@@ -7,7 +7,7 @@
 
 <html class="theme-next mist use-motion" lang="zh-Hans">
 <head>
-  <meta charset="UTF-8"/>
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 
@@ -130,7 +130,7 @@
 
 
 
-  <title> Spark Job调优(Part 2) | FlyingMcdull </title>
+  <title> Spark Job调优(Part 2) | FlyingMcdull </title><!-- hexo-inject:begin --><!-- hexo-inject:end -->
 </head>
 
 <body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
@@ -151,7 +151,7 @@
     
   
 
-  <div class="container one-collumn sidebar-position-left page-post-detail ">
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><div class="container one-collumn sidebar-position-left page-post-detail ">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
@@ -356,8 +356,8 @@
 <h1 id="资源分配调优"><a href="#资源分配调优" class="headerlink" title="资源分配调优"></a>资源分配调优</h1><p>Spark用户列表经常被这样一类问题困扰：“我有一个500节点的集群，但是当我跑我的应用的时候我只看到两个task同时执行”。如果指定了Spark资源占用的参数，这些问题就不是问题了，但在这一节中你将会学习如何榨干你的集群最后一点资源。以下的建议和配置在不同Spark集群管理器（YARN，Mesos和Standalone）上会有所不同，但是我们仅仅只关注在YARN上，也是Cloudera推荐的方式。</p>
 <p>要看一下Spark在YARN上跑的背景知识，可以去看这篇<a href="http://blog.cloudera.com/blog/2014/05/apache-spark-resource-management-and-yarn-app-models/" target="_blank" rel="external">博客</a></p>
 <p>在YARN上考虑的两个主要资源就是<em>CPU</em>和<em>内存</em>，磁盘和网络IO也会影响Spark性能，但是Spark和YARN目前都没有有效管理机制。</p>
-<p>一个应用中每个Spark executor都有相同的固定数目的core和固定的heap size。core数可以在命令行调用spark-submit，spark-shell或者pyspark时通过<em>–executor-memory</em>指定，或者在<em>spark-defaults.conf</em>文件中或者<em>SparkConf</em>对象中设置<em>spark.executor.cores</em>参数。类似地，heap size也可以通过<em>–executor-memory</em>或者<em>spark.executor.memory</em>来控制。<em>cores</em>属性控制了一个executor可以并发执行的task数量，<em>–executor-cores 5</em>意味着每个executor最多可以同时执行5个task。内存属性指明了Spark可以缓存的数据量，同时也是用来group，aggregate和join的shuffle数据结构大小。</p>
-<p><em>–num-executor</em>命令行参数或者<em>spark.executor.instances</em>配置属性可以控制请求的executor个数。从CDH 5.4/Spark 1.3开始，你可以通过设置<em>spark.dynamicAllocation.enabled</em>属性打开动态资源分配来禁用这一属性。动态分配可以让Spark应用在有挂起的task时请求executor，而没有task时释放executor。</p>
+<p>一个应用中每个Spark executor都有相同的固定数目的core和固定的heap size。core数可以在命令行调用spark-submit，spark-shell或者pyspark时通过<em>—executor-memory</em>指定，或者在<em>spark-defaults.conf</em>文件中或者<em>SparkConf</em>对象中设置<em>spark.executor.cores</em>参数。类似地，heap size也可以通过<em>—executor-memory</em>或者<em>spark.executor.memory</em>来控制。<em>cores</em>属性控制了一个executor可以并发执行的task数量，<em>—executor-cores 5</em>意味着每个executor最多可以同时执行5个task。内存属性指明了Spark可以缓存的数据量，同时也是用来group，aggregate和join的shuffle数据结构大小。</p>
+<p><em>—num-executor</em>命令行参数或者<em>spark.executor.instances</em>配置属性可以控制请求的executor个数。从CDH 5.4/Spark 1.3开始，你可以通过设置<em>spark.dynamicAllocation.enabled</em>属性打开动态资源分配来禁用这一属性。动态分配可以让Spark应用在有挂起的task时请求executor，而没有task时释放executor。</p>
 <p>理解Spark资源请求如何映射到YARN中是很重要的，YARN相关属性是：</p>
 <ul>
 <li><strong>yarn.nodemanager.resource.memory-mb</strong></li>
@@ -369,7 +369,7 @@
 <p>控制每个节点上的container使用的最大core数目</p>
 <p>请求5个executor core就相当于向YARN请求5个virtual core，YARN的内存请求稍微有点负责，原因如下：</p>
 <ul>
-<li><strong>–executor-memory/spark.executor.memory</strong></li>
+<li><strong>—executor-memory/spark.executor.memory</strong></li>
 </ul>
 <p>控制executor的heap size，但是JVM也能使用一些堆内存，比如字符串和直接字节的buffer缓存。<em>spark.yarn.executor.memoryOverhead</em>值被加到executor内存中用来决定每个executor使用的全部内存请求。默认是max(384, 0.07*spark.executor.memory)(注意，在Spark-1.6.1中0.07已经改成了0.1了，为了保证统一，后续也还是沿用0.07)</p>
 <ul>
@@ -378,7 +378,7 @@
 <p>下图（并非按比例）表示了Spark和YARN中的内存属性层次关系：<br><img src="/figures/tune-spark-job-2/spark-tuning2-f1.png" alt="spark-tuning-job-2"></p>
 <p>如果这还不足以用来理解的话，还有一些在设置Spark executor时最后需要考虑的：</p>
 <ul>
-<li><p>application master是一个非executor的container，YARN中有一个特殊的请求机制，master必须使用它自己的资源预算。在<em>yarn-client</em>模式中，默认是1024 MB内存和1个vcore。在<em>yarn-cluster</em>模式中，master运行着driver，所以通常用<em>–driver-memory</em>和<em>–driver-cores</em>属性来设置比较有效。</p>
+<li><p>application master是一个非executor的container，YARN中有一个特殊的请求机制，master必须使用它自己的资源预算。在<em>yarn-client</em>模式中，默认是1024 MB内存和1个vcore。在<em>yarn-cluster</em>模式中，master运行着driver，所以通常用<em>—driver-memory</em>和<em>—driver-cores</em>属性来设置比较有效。</p>
 </li>
 <li><p>给executor设置太多的内存经常会导致过高的GC（garbage collection，JVM的内存垃圾回收）延迟，单个executor的粗略内存上限是64GB。</p>
 </li>
@@ -388,16 +388,16 @@
 </li>
 </ul>
 <p>为描述得更加具体一点，这里举一个例子来配置Spark app充分利用集群：设想有一个集群有6个节点运行NodeManager，每个节点配置16核，64GB内存。NodeManager容量，<em>yarn.nodemanager.resource.memory-mb</em>和<em>yarn.nodemanager.resource.cpu-vcores</em>就分别应该被设置成63*1024=64512(MB)和15。我们要避免将100%资源分配给YARN container，因为节点还要一些资源来运行操作系统和Hadoop的一些守护进程。在这种情况下，预留1个core和1GB内存给这些进程。Cloudera管理器可以帮你考虑并自动配置这些YARN属性。</p>
-<p>冲动之下你很可能会使用<strong>–num-executor 6 –executor-core 15 –executor-memory 63G</strong>，然而这是一种错误的方法，原因如下：</p>
+<p>冲动之下你很可能会使用<strong>—num-executor 6 —executor-core 15 —executor-memory 63G</strong>，然而这是一种错误的方法，原因如下：</p>
 <ul>
 <li>63GB容量的Nodemanager不能满足63GB以上的executor内存开销</li>
 <li>application master会占用一个core和一个节点，这意味着那个节点上就没有空间容纳一个15-core的executor了</li>
 <li>每个executor上15个core会导致严重的HDFS I/O吞吐</li>
 </ul>
-<p>一个更好的选择就是用<strong>–num-executor 17 –executor-core 5 –executor-memory 19G</strong>，原因如下：</p>
+<p>一个更好的选择就是用<strong>—num-executor 17 —executor-core 5 —executor-memory 19G</strong>，原因如下：</p>
 <ul>
 <li>这种配置下除了有AM的节点有2个executor之外，每个节点上都有3个executor</li>
-<li><em>–executor-memory</em>计算方式是(每个节点上63/3个executor)=21，21*0.07=1.47（之前说了至少留7%的内存给系统），21-1.47=19</li>
+<li><em>—executor-memory</em>计算方式是(每个节点上63/3个executor)=21，21*0.07=1.47（之前说了至少留7%的内存给系统），21-1.47=19</li>
 </ul>
 <h1 id="并行度调优"><a href="#并行度调优" class="headerlink" title="并行度调优"></a>并行度调优</h1><p>众多周知Spark是一个并行处理引擎，一个不是很明显的特点就是Spark并不是一个完美的并行处理引擎，它找出最优并行度的能力有限。每个Spark stage都有一定数量的task，每个task都并行处理数据。在Spark Job调优过程中，这个数字恐怕是唯一一个决定性能的最重要的参数了。</p>
 <p>那么这个数字是如何决定的呢？Spark如何划分RDD到stage中已经在上文述及。一个stage中的task数和对应哪个stage的最后一个RDD分区数相同。一个RDD的分区数和它所依赖的RDD分区数一样，除了<em>coalesce</em>转换可以允许创建比父RDD更少分区的RDD，还有<em>union</em>转换可以创建出父RDD们分区总数个分区的RDD，<em>cartesian</em>转换创建父RDD分区乘积个分区的RDD。</p>
@@ -665,7 +665,7 @@
         <div class="copyright" >
   
   &copy;  2014 - 
-  <span itemprop="copyrightYear">2017</span>
+  <span itemprop="copyrightYear">2018</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
@@ -756,7 +756,24 @@
   
 
 
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({"tex2jax":{"inlineMath":[["$","$"],["\\(","\\)"]],"skipTags":["script","noscript","style","textarea","pre","code"],"processEscapes":true},"TeX":{"equationNumbers":{"autoNumber":"AMS"}}});
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
 
 
 

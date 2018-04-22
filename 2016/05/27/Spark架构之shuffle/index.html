@@ -7,7 +7,7 @@
 
 <html class="theme-next mist use-motion" lang="zh-Hans">
 <head>
-  <meta charset="UTF-8"/>
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 
@@ -133,7 +133,7 @@
 
 
 
-  <title> Spark架构之shuffle | FlyingMcdull </title>
+  <title> Spark架构之shuffle | FlyingMcdull </title><!-- hexo-inject:begin --><!-- hexo-inject:end -->
 </head>
 
 <body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
@@ -154,7 +154,7 @@
     
   
 
-  <div class="container one-collumn sidebar-position-left page-post-detail ">
+  <!-- hexo-inject:begin --><!-- hexo-inject:end --><div class="container one-collumn sidebar-position-left page-post-detail ">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
@@ -357,7 +357,7 @@
       
         <p>本文针对Spark设计中shuffle部分进行详细介绍，是一篇大牛<a href="https://0x0fff.com/spark-architecture-shuffle/" target="_blank" rel="external">博客</a>的译文，翻译外文博客只是为了记录自己阅读过程并存档方便随时回顾。<a id="more"></a></p>
 <p>有人经常会问通常的shuflle到底是个怎样的过程？想象一下假设你有一个表单，上面有一串的电话通信记录详情，然后你想计算每天到底有几次通信。这种情况下你会把“day”作为你的key，然后对每条记录你就将1作为其值。之后你就将每个key的值加起来得到你要的结果，也就是每天的通信记录数。但是当你将数据存储在一个集群中，你又如何将分布在不同机器上的相同key的value相加呢？唯一的办法就是将所有相同key的value放在同一个机器上，然后你才可以像之前说的那样相加。<br><img src="/figures/spark-architecture-shuffle/Spark-Shuffle-Design.png" alt=""></p>
-<p>有很多task需要在集群中讲数据进行shuffle操作，比如table join—将两个表单按照id域连接，你就必须保证两个表单中相同id的数据都存储在相同的数据块中。假设表的key在1到1000000之间。将数据存储在相同块的意思就是比如说两个表中key在1-100的记录都存储在单个的分区或者块中，这样就不需要对第一个表单的每个分区都去遍历第二个表单我们就可以将分区和分区合并，因为我们知道key在1-100的记录只存储在这两个分区中。为了达到这种效果两个表单要有相同数量的分区，这样就可以大大减少计算量。通过上述举例你可以知道shuffle是多么重要吧！</p>
+<p>有很多task需要在集群中讲数据进行shuffle操作，比如table join—-将两个表单按照id域连接，你就必须保证两个表单中相同id的数据都存储在相同的数据块中。假设表的key在1到1000000之间。将数据存储在相同块的意思就是比如说两个表中key在1-100的记录都存储在单个的分区或者块中，这样就不需要对第一个表单的每个分区都去遍历第二个表单我们就可以将分区和分区合并，因为我们知道key在1-100的记录只存储在这两个分区中。为了达到这种效果两个表单要有相同数量的分区，这样就可以大大减少计算量。通过上述举例你可以知道shuffle是多么重要吧！</p>
 <p>为了方便讨论这个主题，我依旧沿用MapReduce的命名规则。在shuffle操作中，从源executor发送数据的称作mapper，在目标executor中接受数据的task称作reducer，它们之间的操作就是shuffle。</p>
 <p>一般来说shuffle有两个非常重要的压缩参数：</p>
 <ul>
@@ -367,12 +367,12 @@
 <p>两个参数默认都是true，都用<em>spark.io.compression.codec</em>编码方式来压缩数据，默认是<em>snappy</em>。</p>
 <p>你可能知道Spark中有多种shuffle实现方式，你用哪种实现方式取决于<em>spark.shuffle.manager</em>参数。3个可能的选择有：hash，sort，tungsten-sort，从Spark-1.2.0开始默认的shuffle方式都是sort。</p>
 <h1 id="Hash-Shuffle"><a href="#Hash-Shuffle" class="headerlink" title="Hash Shuffle"></a>Hash Shuffle</h1><p>Spark-1.2.0之前默认的shuffle方式是hash（spark.shuffle.manager=hash），但是它有很多缺陷，主要因为其创建了大量文件，每个mapper task会为每个独立的reducer创建一个独立的文件，最终就会创建<strong>M*R</strong>个文件出来，M是mapper数，R是reducer数。在mapper和reducer较多的时候这会导致很严重的问题，输出的buffer大小，文件系统打开文件数和创建和删除文件的速度将会大受影响。有一个雅虎的例子可以<a href="https://spark-summit.org/2013/wp-content/uploads/2013/10/Li-AEX-Spark-yahoo.pdf" target="_blank" rel="external">参考</a>，有46k个mapper和46k个reducer就会在集群中产生20亿个文件。</p>
-<p>hash shuffler的实现逻辑相当简单粗暴：计算所有的reducer个数作为reduce端的分区个数，然后为每个分区创建一个独立文件，循环遍历需要输出的记录，然后计算出目标分区并将记录写到对应文件中，过程如下图：<br><img src="/figures/spark-architecture-shuffle/spark_hash_shuffle_no_consolidation.png" alt="hash-shuffle"><br>hash shuffler有一个优化参数<em>spark.shuffle.consolidateFiles</em>（默认false），当设置成true时，mapper的输出文件就会被合并。如果你的集群有E个executors（YARN上用–num-executor指定），每个executor有C个core（YARN上用spark.executor.cores或者–executor-cores指定），每个task用T个CPU（spark.task.cpus），那么集群中的execution slots数就是<strong>E*C/T</strong>，shuffle期间将会创建<strong>E*C/T*R</strong>个文件。如果有100个executor，每个executor有10个core，每个task对应1个core，有46k个reducer的话，通过合并操作可以将文件数从20亿减少到4600w，对性能将会有极大提升。这个特性<a href="https://github.com/apache/spark/blob/branch-1.6/core/src/main/scala/org/apache/spark/shuffle/FileShuffleBlockResolver.scala" target="_blank" rel="external">实现方式</a>很简单：它创建一个输出文件pool而非为每个reducer创建文件。当map task开始输出数据时，就会从这个pool中请求R个文件的分组。结束时就将这R个文件分组返还给pool。因为每个executor只会并行执行<strong>C/T</strong>个task，所以只会创建<strong>C/T</strong>个输出文件分组，每个分组有R个文件。在这<strong>C/T</strong>个task结束后，每个下一个map task都可以重用pool中已有的分组。下图是实现过程：<br><img src="/figures/spark-architecture-shuffle/spark_hash_shuffle_with_consolidation.png" alt="hash-shuffle-consolidation"></p>
+<p>hash shuffler的实现逻辑相当简单粗暴：计算所有的reducer个数作为reduce端的分区个数，然后为每个分区创建一个独立文件，循环遍历需要输出的记录，然后计算出目标分区并将记录写到对应文件中，过程如下图：<br><img src="/figures/spark-architecture-shuffle/spark_hash_shuffle_no_consolidation.png" alt="hash-shuffle"><br>hash shuffler有一个优化参数<em>spark.shuffle.consolidateFiles</em>（默认false），当设置成true时，mapper的输出文件就会被合并。如果你的集群有E个executors（YARN上用—num-executor指定），每个executor有C个core（YARN上用spark.executor.cores或者—executor-cores指定），每个task用T个CPU（spark.task.cpus），那么集群中的execution slots数就是<strong>E*C/T</strong>，shuffle期间将会创建<strong>E*C/T*R</strong>个文件。如果有100个executor，每个executor有10个core，每个task对应1个core，有46k个reducer的话，通过合并操作可以将文件数从20亿减少到4600w，对性能将会有极大提升。这个特性<a href="https://github.com/apache/spark/blob/branch-1.6/core/src/main/scala/org/apache/spark/shuffle/FileShuffleBlockResolver.scala" target="_blank" rel="external">实现方式</a>很简单：它创建一个输出文件pool而非为每个reducer创建文件。当map task开始输出数据时，就会从这个pool中请求R个文件的分组。结束时就将这R个文件分组返还给pool。因为每个executor只会并行执行<strong>C/T</strong>个task，所以只会创建<strong>C/T</strong>个输出文件分组，每个分组有R个文件。在这<strong>C/T</strong>个task结束后，每个下一个map task都可以重用pool中已有的分组。下图是实现过程：<br><img src="/figures/spark-architecture-shuffle/spark_hash_shuffle_with_consolidation.png" alt="hash-shuffle-consolidation"></p>
 <ul>
 <li><strong>优点</strong></li>
 </ul>
 <ol>
-<li>快速—因为不需要排序，也不需要维护hash table</li>
+<li>快速—-因为不需要排序，也不需要维护hash table</li>
 <li>数据排序没有内存开销</li>
 <li>没有IO开销- 数据只写到HDD一次并读一次</li>
 </ol>
@@ -383,10 +383,10 @@
 <li>当分区数较大，输出文件数较大会导致性能下降</li>
 <li>向文件系统写入大量文件会导致IO随机IO的倾斜（也就是随机IO变多的意思），而通常随机IO比顺序IO要慢100倍<br>关于在单个文件系统百万级文件IO操作变慢可以参考<a href="http://events.linuxfoundation.org/slides/2010/linuxcon2010_wheeler.pdf" target="_blank" rel="external">这里</a></li>
 </ol>
-<p>当然，当数据被写进文件时会被序列化或者压缩（可选），被读取时则刚好相反—解压并反序列化。拉取数据一端的一个重要参数<em>spark.reducer.maxSizeInFlight</em>（默认是48M）决定每个reducer从远端executor请求的数据量。这个数据量是由来自不同executor上的5个并行请求平分，这样来加快这个过程。如果你增大这个数据量，你的reducer就会以更大的数据块来向map task输出请求数据，这样可以提升性能但同时也会增加reducer的内存开销。</p>
+<p>当然，当数据被写进文件时会被序列化或者压缩（可选），被读取时则刚好相反—-解压并反序列化。拉取数据一端的一个重要参数<em>spark.reducer.maxSizeInFlight</em>（默认是48M）决定每个reducer从远端executor请求的数据量。这个数据量是由来自不同executor上的5个并行请求平分，这样来加快这个过程。如果你增大这个数据量，你的reducer就会以更大的数据块来向map task输出请求数据，这样可以提升性能但同时也会增加reducer的内存开销。</p>
 <p>如果reduce端不强制对记录排序，那reducer就只返回一个具有对map输出依赖关系的迭代器，但如果需要排序的话就需要将数据全部拉取过来并使用<a href="https://github.com/apache/spark/blob/master/core/src/main/scala/org/apache/spark/util/collection/ExternalSorter.scala" target="_blank" rel="external">ExternalSorter</a>进行排序。</p>
 <h1 id="Sort-Shuffle"><a href="#Sort-Shuffle" class="headerlink" title="Sort Shuffle"></a>Sort Shuffle</h1><p>从Spark-1.2.0开始，sort shuffle被作为默认的shuffle算法（通过spark.shuffle.manager=sort开启）。大体上讲其实是尝试实现Hadoop MapReduce所使用的shuffle逻辑。hash shuffle中为每个reducer输出一个独立的文件，但sort shuffle中就更智能一点：每个输出的独立文件都根据reducer的id排序并索引，这样就可以通过获取相关数据块在文件中的位置信息，在读取之前做一个简单的fseek，很容易就可以拉取和reducer X相关联的数据块了。但显然reducer数较少时hash方式比sort方式要快，因此sort shuffle有一个退化机制：当reducer数少于<em>spark.shuffle.sort.bypassMergeThreshold</em>（默认200）时，就用将数据hash进多个独立文件然后将之合并到一个独立文件中，这一部分逻辑在一个独立类<a href="https://github.com/apache/spark/blob/master/core/src/main/java/org/apache/spark/shuffle/sort/BypassMergeSortShuffleWriter.java" target="_blank" rel="external">BypassMergeSortShufflerWriter</a>中实现。</p>
-<p>sort shuffle一个有意思的地方就是它在map端对数据排序，但是在reduce端不合并排序结果—除非需要对数据排序才会对数据进行重排序。Clouderea有这方面的<a href="http://blog.cloudera.com/blog/2015/01/improving-sort-performance-in-apache-spark-its-a-double/" target="_blank" rel="external">经验</a>。他们开始实现对mapper输出先排序然后在reduce端合并，而不是重排序。你可能知道在Spark的reduce端排序是用<a href="https://en.wikipedia.org/wiki/Timsort" target="_blank" rel="external">TimSort</a>，这是一个十分优异的排序算法，它利用了预先排序的输入。</p>
+<p>sort shuffle一个有意思的地方就是它在map端对数据排序，但是在reduce端不合并排序结果—-除非需要对数据排序才会对数据进行重排序。Clouderea有这方面的<a href="http://blog.cloudera.com/blog/2015/01/improving-sort-performance-in-apache-spark-its-a-double/" target="_blank" rel="external">经验</a>。他们开始实现对mapper输出先排序然后在reduce端合并，而不是重排序。你可能知道在Spark的reduce端排序是用<a href="https://en.wikipedia.org/wiki/Timsort" target="_blank" rel="external">TimSort</a>，这是一个十分优异的排序算法，它利用了预先排序的输入。</p>
 <p>但是当内存不足以存储map输出怎么办呢？这时候你可能需要将临时数据溢写到磁盘上，<em>spark.shuffle.spill</em>参数决定是否溢写，默认是开启的。如果你禁止了并且没有足够内存存储map输出，你就会收到OOM错误。</p>
 <p>用来在溢写到磁盘之前存储map输出的内存大小为<strong>JVM Heap Size*spark.shuffle.memoryFraction*spark.shuffle.safetyFraction</strong>，默认是<strong>JVM Heap Size*0.2*0.8 = JVM Heap Size*0.16</strong>。你要知道如果你在同一个executor中跑很多线程（将spark.executor.cores/spark.task.cpus设置大于1），那么每个task存储map输出的内存大小就是<strong>JVM Heap Size * spark.shuffle.memoryFraction * spark.shuffle.safetyFraction/spark.executor.cores * spark.task.cpus</strong>， 其他选项默认的话，2个core就有<strong>0.08 * JVM Heap Size</strong>。</p>
 <p>Spark内部用<a href="https://github.com/apache/spark/blob/branch-1.5/core/src/main/scala/org/apache/spark/util/collection/AppendOnlyMap.scala" target="_blank" rel="external">AppendOnlyMap</a>结构来在内存中存储map输出。有趣的是，Spark用自己的Scala实现hash table- 用<a href="http://en.wikipedia.org/wiki/Quadratic_probing" target="_blank" rel="external">quadratic probing</a>hash并存储相同数组的key和value。采用了Google Guava库中的murmur3_32作为hash函数。</p>
@@ -677,7 +677,7 @@
         <div class="copyright" >
   
   &copy;  2014 - 
-  <span itemprop="copyrightYear">2017</span>
+  <span itemprop="copyrightYear">2018</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
@@ -768,7 +768,24 @@
   
 
 
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({"tex2jax":{"inlineMath":[["$","$"],["\\(","\\)"]],"skipTags":["script","noscript","style","textarea","pre","code"],"processEscapes":true},"TeX":{"equationNumbers":{"autoNumber":"AMS"}}});
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
 
 
 
